@@ -30,7 +30,8 @@
     "logout": "Sign out",
     "menu": "Menu",
     "openMenu": "Open navigation menu",
-    "closeMenu": "Close navigation menu"
+    "closeMenu": "Close navigation menu",
+    "primaryLabel": "Main navigation"
   },
   "languageSwitch": {
     "label": "Language",
@@ -62,6 +63,13 @@
     "valuesTitle": "Our values",
     "sustainabilityTitle": "Sustainability",
     "innovationTitle": "Innovation"
+  },
+  "footer": {
+    "navLabel": "Footer navigation",
+    "navTitle": "Explore",
+    "contactTitle": "Contact",
+    "companyName": "Zain International Trading",
+    "copyright": "All rights reserved."
   },
   "contact": {
     "title": "Contact us",

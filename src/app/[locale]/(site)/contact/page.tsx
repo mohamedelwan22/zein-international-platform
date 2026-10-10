@@ -1,0 +1,153 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { isAppLocale, type AppLocale } from "@/i18n/routing";
+import { loadContactInfo } from "@/server/cache/public-content";
+import { buildPublicMetadata } from "@/lib/seo";
+import { Section } from "@/components/site/section-heading";
+import { EmptyState } from "@/components/site/cards";
+
+/**
+ * Contact route (T036, FR-014): presents the approved contact details from
+ * Settings — Jeddah, Aziziyah District, 23337 King Fahd Road; phones
+ * 0126747594 / 0126747595; ahmed@zainagency.com; Zainagency.com — kept
+ * editable through settings (never hardcoded). Working hours display the
+ * localized pending state until client content arrives (Open Item 6).
+ * The inquiry form mounts here in US4.
+ */
+
+interface RouteProps {
+  params: Promise<{ locale: string }>;
+}
+
+function resolveLocale(raw: string): AppLocale {
+  return isAppLocale(raw) ? raw : "en";
+}
+
+export async function generateMetadata({ params }: RouteProps): Promise<Metadata> {
+  const { locale: raw } = await params;
+  const locale = resolveLocale(raw);
+  setRequestLocale(locale);
+
+  const [contact, tContact] = await Promise.all([
+    loadContactInfo(locale),
+    getTranslations({ locale, namespace: "contact" }),
+  ]);
+
+  const description = contact
+    ? `${contact.country} — ${contact.city}, ${contact.district}, ${contact.address}. ${contact.email}`
+    : tContact("note");
+
+  return buildPublicMetadata({
+    locale,
+    path: "/contact",
+    title: tContact("title"),
+    description,
+  });
+}
+
+export default async function ContactPage({ params }: RouteProps) {
+  const { locale: raw } = await params;
+  if (!isAppLocale(raw)) {
+    notFound();
+  }
+  const locale = raw;
+  setRequestLocale(locale);
+
+  const [contact, tContact, tEmpty] = await Promise.all([
+    loadContactInfo(locale),
+    getTranslations({ locale, namespace: "contact" }),
+    getTranslations({ locale, namespace: "empty" }),
+  ]);
+
+  return (
+    <Section className="bg-white pb-20 pt-16 md:pb-28 md:pt-24">
+      <h1 className="font-display text-h1 font-medium text-zain-green-950">
+        {tContact("title")}
+      </h1>
+
+      {contact ? (
+        <>
+          <p className="prose-editorial mt-6 max-w-2xl text-body-lg text-zain-green-950/80">
+            {contact.note ?? tContact("note")}
+          </p>
+
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-zain-green-950/10 bg-zain-cream-50 p-8">
+              <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+                {tContact("addressLabel")}
+              </h2>
+              <address className="mt-4 space-y-1 text-body not-italic text-zain-green-950/85">
+                <p>{contact.country}</p>
+                <p>
+                  {contact.city}, {contact.district}
+                </p>
+                <p>{contact.address}</p>
+              </address>
+            </div>
+
+            <div className="rounded-lg border border-zain-green-950/10 bg-zain-cream-50 p-8">
+              <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+                {tContact("phoneLabel")}
+              </h2>
+              <ul className="mt-4 space-y-1">
+                {contact.phones.map((phone) => (
+                  <li key={phone}>
+                    <a
+                      href={`tel:${phone}`}
+                      dir="ltr"
+                      className="inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
+                    >
+                      {phone}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-zain-green-950/10 bg-zain-cream-50 p-8">
+              <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+                {tContact("emailLabel")}
+              </h2>
+              <a
+                href={`mailto:${contact.email}`}
+                className="mt-4 inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
+              >
+                {contact.email}
+              </a>
+            </div>
+
+            <div className="rounded-lg border border-zain-green-950/10 bg-zain-cream-50 p-8">
+              <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+                {tContact("websiteLabel")}
+              </h2>
+              <a
+                href={`https://${contact.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
+              >
+                {contact.website}
+              </a>
+            </div>
+          </div>
+
+          {/* Working hours — pending client content (Open Item 6): surface
+              the localized pending state, never a placeholder value. */}
+          <div className="mt-6 rounded-lg border border-dashed border-zain-green-950/20 bg-zain-cream-50/60 p-8">
+            <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+              {tContact("workingHoursLabel")}
+            </h2>
+            <p className="mt-3 text-body text-zain-green-950/70">
+              {tContact("workingHoursPending")}
+            </p>
+          </div>
+        </>
+      ) : (
+        <div className="mt-12">
+          <EmptyState title={tEmpty("cmsTitle")} body={tEmpty("cmsBody")} />
+        </div>
+      )}
+    </Section>
+  );
+}

@@ -30,7 +30,8 @@
     "logout": "تسجيل الخروج",
     "menu": "القائمة",
     "openMenu": "فتح قائمة التنقل",
-    "closeMenu": "إغلاق قائمة التنقل"
+    "closeMenu": "إغلاق قائمة التنقل",
+    "primaryLabel": "التنقل الرئيسي"
   },
   "languageSwitch": {
     "label": "اللغة",
@@ -62,6 +63,13 @@
     "valuesTitle": "قيمنا",
     "sustainabilityTitle": "الاستدامة",
     "innovationTitle": "الابتكار"
+  },
+  "footer": {
+    "navLabel": "تنقل التذييل",
+    "navTitle": "استكشف",
+    "contactTitle": "التواصل",
+    "companyName": "وكالة زين للتجارة العالمية",
+    "copyright": "جميع الحقوق محفوظة."
   },
   "contact": {
     "title": "اتصل بنا",

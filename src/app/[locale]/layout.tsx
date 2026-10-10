@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Amiri, Cormorant_Garamond, IBM_Plex_Sans_Arabic, Manrope } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
 import { dirForLocale, isAppLocale, routing } from "@/i18n/routing";
+import { env } from "@/lib/env";
 import "../globals.css";
 
 /**
@@ -14,6 +16,9 @@ import "../globals.css";
  * Fonts (plan decision, DESIGN_SYSTEM §8 — two-family split, first-class
  * Arabic typography): Cormorant Garamond (Latin display), Manrope (Latin UI),
  * Amiri (Arabic display), IBM Plex Sans Arabic (Arabic UI).
+ *
+ * The layout also owns the localized title default/template so every route
+ * (including the localized 404) carries a proper <title> (SC-011).
  */
 
 const cormorant = Cormorant_Garamond({
@@ -51,6 +56,29 @@ const fontVariables = [
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const active = isAppLocale(locale) ? locale : routing.defaultLocale;
+  const t = await getTranslations({ locale: active, namespace: "footer" });
+  const company = t("companyName");
+
+  return {
+    metadataBase: new URL(env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")),
+    title: {
+      default: company,
+      template: `%s | ${company}`,
+    },
+    openGraph: {
+      siteName: company,
+      images: [{ url: "/hero.png", width: 2001, height: 786 }],
+    },
+  };
 }
 
 export default async function LocaleLayout({

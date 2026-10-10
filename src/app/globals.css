@@ -54,15 +54,25 @@
   --font-sans: var(--font-manrope), var(--font-ibm-plex-sans-arabic), sans-serif;
 
   /* Responsive typography scale (§9) — clamps verbatim from the doc.
-   * Body/meta ranges from the doc map to their clean in-range values. */
+   * Body/meta ranges from the doc map to their clean in-range values.
+   * Line-height companions adapt the scale to actual usage (display type
+   * needs tighter leading; long-form body needs looser). */
   --text-hero: clamp(3rem, 7vw, 7.5rem);
+  --text-hero--line-height: 1.05;
   --text-display: clamp(2.5rem, 5vw, 5rem);
+  --text-display--line-height: 1.1;
   --text-h1: clamp(2.25rem, 4vw, 4rem);
+  --text-h1--line-height: 1.15;
   --text-h2: clamp(1.75rem, 3vw, 3rem);
+  --text-h2--line-height: 1.2;
   --text-h3: clamp(1.25rem, 2vw, 2rem);
+  --text-h3--line-height: 1.35;
   --text-body-lg: 1.25rem; /* §9 range: 1.125rem–1.35rem */
+  --text-body-lg--line-height: 1.6;
   --text-body: 1rem;        /* §9 range: 1rem–1.125rem */
+  --text-body--line-height: 1.65;
   --text-meta: 0.8125rem;   /* §9 range: 0.75rem–0.875rem */
+  --text-meta--line-height: 1.45;
 
   /* -----------------------------------------------------------------
    * Spacing (§10): 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 80 / 96 / 128 / 160.
@@ -93,5 +103,41 @@
   body {
     font-family: var(--font-sans);
     text-align: start;
+  }
+
+  /* Visible focus everywhere (FR-040) — gold reads on both cream and
+   * deep-green surfaces. */
+  :focus-visible {
+    outline: 2px solid var(--color-zain-gold-500);
+    outline-offset: 2px;
+  }
+
+  /* Long-form editorial copy keeps comfortable measure + leading. */
+  .prose-editorial {
+    max-width: 70ch;
+  }
+
+  /* Approved motion is restrained (§15); honor reduced motion globally. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Skip link — hidden until focused (FR-040 keyboard navigation). */
+@utility skip-link {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: -100%;
+  z-index: 100;
+  transition: top 150ms ease;
+  &:focus {
+    top: 1rem;
   }
 }
