@@ -1,0 +1,674 @@
+// Zain International Trading B2B Platform — domain schema.
+// Source of truth: specs/001-zain-b2b-platform/data-model.md (T013).
+// Physical migrations live in prisma/migrations; slug uniqueness is enforced
+// with per-locale partial unique indexes added in the initial migration (T014).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SuperAdmin
+  ContentManager
+  ProductManager
+  SalesBusiness
+}
+
+enum CategoryKind {
+  brand
+  product
+  supplier
+}
+
+enum PublishStatus {
+  draft
+  published
+  archived
+}
+
+enum Locale {
+  en
+  ar
+}
+
+enum CmsSectionKey {
+  home
+  about
+  contact
+}
+
+enum MediaKind {
+  image
+  document
+}
+
+enum LeadStatus {
+  new
+  contacted
+  inProgress
+  closed
+}
+
+enum InquiryType {
+  product
+  brand
+  supplier
+  distribution
+  partnership
+  general
+}
+
+enum ActivityAction {
+  login
+  logout
+  create
+  update
+  delete
+  archive
+  publish
+  unpublish
+  visibilityChange
+  permissionChange
+  userCreate
+  userUpdate
+  userDeactivate
+  attachmentAccess
+  statusChange
+  roleChange
+  settingsUpdate
+}
+
+enum EntityType {
+  page
+  brand
+  product
+  supplier
+  category
+  client
+  location
+}
+
+// ---------------------------------------------------------------------------
+// Staff identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  tokenVersion Int       @default(1)
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  version      Int       @default(1)
+  createdById  String?   @db.Uuid
+  updatedById  String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  createdBy User?  @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  created   User[] @relation("UserCreatedBy")
+  updated   User[] @relation("UserUpdatedBy")
+
+  media               Media[]
+  activityLogs        ActivityLog[]
+  inquiriesChanged    Inquiry[]            @relation("InquiryStatusChangedBy")
+  partnershipsChanged PartnershipRequest[] @relation("PartnershipStatusChangedBy")
+
+  categoriesCreated Category[]   @relation("CategoryCreatedBy")
+  categoriesUpdated Category[]   @relation("CategoryUpdatedBy")
+  brandsCreated     Brand[]      @relation("BrandCreatedBy")
+  brandsUpdated     Brand[]      @relation("BrandUpdatedBy")
+  productsCreated   Product[]    @relation("ProductCreatedBy")
+  productsUpdated   Product[]    @relation("ProductUpdatedBy")
+  suppliersCreated  Supplier[]   @relation("SupplierCreatedBy")
+  suppliersUpdated  Supplier[]   @relation("SupplierUpdatedBy")
+  clientsCreated    Client[]     @relation("ClientCreatedBy")
+  clientsUpdated    Client[]     @relation("ClientUpdatedBy")
+  locationsCreated  Location[]   @relation("LocationCreatedBy")
+  locationsUpdated  Location[]   @relation("LocationUpdatedBy")
+  cmsCreated        CmsSection[] @relation("CmsSectionCreatedBy")
+  cmsUpdated        CmsSection[] @relation("CmsSectionUpdatedBy")
+  seoCreated        SeoMeta[]    @relation("SeoMetaCreatedBy")
+  seoUpdated        SeoMeta[]    @relation("SeoMetaUpdatedBy")
+  settingsUpdated   Settings[]   @relation("SettingsUpdatedBy")
+
+  @@index([role, active])
+}
+
+// ---------------------------------------------------------------------------
+// Media library
+// ---------------------------------------------------------------------------
+
+model Media {
+  id           String    @id @default(uuid()) @db.Uuid
+  kind         MediaKind
+  mimeType     String
+  byteSize     Int
+  storageKey   String    @unique
+  originalName String
+  altEn        String?
+  altAr        String?
+  sha256       String
+  archivedAt   DateTime?
+  deletedAt    DateTime?
+  uploadedById String    @db.Uuid
+  createdAt    DateTime  @default(now())
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  brandLogos             Brand[]              @relation("BrandLogo")
+  brandCovers            Brand[]              @relation("BrandCover")
+  productImages          ProductImage[]
+  productBrochures       Product[]            @relation("ProductBrochure")
+  supplierLogos          Supplier[]           @relation("SupplierLogo")
+  supplierCovers         Supplier[]           @relation("SupplierCover")
+  clientLogos            Client[]             @relation("ClientLogo")
+  locationImages         Location[]           @relation("LocationImage")
+  partnershipAttachments PartnershipRequest[] @relation("PartnershipAttachment")
+  seoOgImages            SeoMeta[]            @relation("SeoOgImage")
+
+  @@index([kind])
+  @@index([archivedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog: categories
+// ---------------------------------------------------------------------------
+
+model Category {
+  id            String        @id @default(uuid()) @db.Uuid
+  kind          CategoryKind
+  parentId      String?       @db.Uuid
+  nameEn        String
+  nameAr        String
+  slugEn        String
+  slugAr        String
+  descriptionEn String?
+  descriptionAr String?
+  sourceDoc     String?
+  status        PublishStatus @default(draft)
+  isActive      Boolean       @default(true)
+  sortOrder     Int           @default(0)
+  version       Int           @default(1)
+  createdById   String        @db.Uuid
+  updatedById   String?       @db.Uuid
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryTree")
+  createdBy User       @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?      @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  brands    BrandCategory[]
+  products  ProductCategory[]
+  suppliers SupplierCategory[]
+
+  @@unique([kind, slugEn])
+  @@unique([kind, slugAr])
+  @@index([kind, status, isActive, sortOrder])
+  @@index([parentId])
+}
+
+model BrandCategory {
+  brandId    String @db.Uuid
+  categoryId String @db.Uuid
+
+  brand    Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([brandId, categoryId])
+  @@index([categoryId])
+}
+
+model ProductCategory {
+  productId  String @db.Uuid
+  categoryId String @db.Uuid
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
+}
+
+model SupplierCategory {
+  supplierId String @db.Uuid
+  categoryId String @db.Uuid
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([supplierId, categoryId])
+  @@index([categoryId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog: brands, products, suppliers
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id              String        @id @default(uuid()) @db.Uuid
+  nameEn          String
+  nameAr          String
+  slugEn          String
+  slugAr          String
+  summaryEn       String?
+  summaryAr       String?
+  originCountryEn String?
+  originCountryAr String?
+  historyEn       String?
+  historyAr       String?
+  distributionEn  String?
+  distributionAr  String?
+  website         String?
+  socialLinks     Json?
+  featured        Boolean       @default(false)
+  logoMediaId     String?       @db.Uuid
+  coverMediaId    String?       @db.Uuid
+  status          PublishStatus @default(draft)
+  isActive        Boolean       @default(true)
+  sortOrder       Int           @default(0)
+  version         Int           @default(1)
+  createdById     String        @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  logo      Media? @relation("BrandLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  cover     Media? @relation("BrandCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("BrandCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?  @relation("BrandUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  categories          BrandCategory[]
+  products            Product[]
+  inquiries           Inquiry[]
+  partnershipRequests PartnershipRequest[]
+
+  @@unique([slugEn])
+  @@unique([slugAr])
+  @@index([status, isActive, sortOrder])
+  @@index([featured])
+}
+
+model Product {
+  id                String        @id @default(uuid()) @db.Uuid
+  brandId           String        @db.Uuid
+  supplierId        String?       @db.Uuid
+  nameEn            String
+  nameAr            String
+  slugEn            String
+  slugAr            String
+  summaryEn         String?
+  summaryAr         String?
+  descriptionEn     String?
+  descriptionAr     String?
+  specificationsEn  Json?
+  specificationsAr  Json?
+  sku               String?
+  reference         String?
+  countryOfOriginEn String?
+  countryOfOriginAr String?
+  brochureMediaId   String?       @db.Uuid
+  status            PublishStatus @default(draft)
+  isActive          Boolean       @default(true)
+  sortOrder         Int           @default(0)
+  version           Int           @default(1)
+  createdById       String        @db.Uuid
+  updatedById       String?       @db.Uuid
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  supplier  Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  brochure  Media?    @relation("ProductBrochure", fields: [brochureMediaId], references: [id], onDelete: SetNull)
+  createdBy User      @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?     @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  categories   ProductCategory[]
+  images       ProductImage[]
+  inquiries    Inquiry[]
+  partnerships PartnershipRequest[]
+
+  @@unique([slugEn])
+  @@unique([slugAr])
+  @@index([status, isActive, sortOrder])
+  @@index([brandId])
+  @@index([supplierId])
+  @@index([countryOfOriginEn])
+}
+
+model ProductImage {
+  id        String @id @default(uuid()) @db.Uuid
+  productId String @db.Uuid
+  mediaId   String @db.Uuid
+  sortOrder Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, mediaId])
+  @@index([productId, sortOrder])
+}
+
+model Supplier {
+  id                 String        @id @default(uuid()) @db.Uuid
+  nameEn             String
+  nameAr             String
+  slugEn             String
+  slugAr             String
+  summaryEn          String?
+  summaryAr          String?
+  descriptionEn      String?
+  descriptionAr      String?
+  originCountryEn    String?
+  originCountryAr    String?
+  historyEn          String?
+  historyAr          String?
+  website            String?
+  phone              String?
+  email              String?
+  logoMediaId        String?       @db.Uuid
+  coverMediaId       String?       @db.Uuid
+  disclosureApproved Boolean       @default(false)
+  status             PublishStatus @default(draft)
+  isActive           Boolean       @default(true)
+  sortOrder          Int           @default(0)
+  version            Int           @default(1)
+  createdById        String        @db.Uuid
+  updatedById        String?       @db.Uuid
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  logo      Media? @relation("SupplierLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  cover     Media? @relation("SupplierCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("SupplierCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?  @relation("SupplierUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  categories   SupplierCategory[]
+  products     Product[]
+  inquiries    Inquiry[]
+  partnerships PartnershipRequest[]
+
+  @@unique([slugEn])
+  @@unique([slugAr])
+  @@index([status, isActive, sortOrder])
+  @@index([disclosureApproved])
+}
+
+model Client {
+  id                 String        @id @default(uuid()) @db.Uuid
+  nameEn             String
+  nameAr             String
+  logoMediaId        String?       @db.Uuid
+  industryEn         String?
+  industryAr         String?
+  locationEn         String?
+  locationAr         String?
+  website            String?
+  descriptionEn      String?
+  descriptionAr      String?
+  disclosureApproved Boolean       @default(false)
+  status             PublishStatus @default(draft)
+  isActive           Boolean       @default(true)
+  sortOrder          Int           @default(0)
+  version            Int           @default(1)
+  createdById        String        @db.Uuid
+  updatedById        String?       @db.Uuid
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  logo      Media? @relation("ClientLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?  @relation("ClientUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([disclosureApproved, status, isActive])
+}
+
+model Location {
+  id           String        @id @default(uuid()) @db.Uuid
+  cityEn       String
+  cityAr       String
+  addressEn    String
+  addressAr    String
+  region       String?
+  countryCode  String        @default("SA")
+  latitude     Decimal?      @db.Decimal(9, 6)
+  longitude    Decimal?      @db.Decimal(9, 6)
+  isVerified   Boolean       @default(false)
+  locationType String?
+  coverageEn   String?
+  coverageAr   String?
+  phone        String?
+  email        String?
+  mapUrl       String?
+  imageMediaId String?       @db.Uuid
+  status       PublishStatus @default(draft)
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  version      Int           @default(1)
+  createdById  String        @db.Uuid
+  updatedById  String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  image     Media? @relation("LocationImage", fields: [imageMediaId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("LocationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?  @relation("LocationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([isVerified, status, isActive])
+}
+
+// ---------------------------------------------------------------------------
+// CMS (structured only — no free-form page builder)
+// ---------------------------------------------------------------------------
+
+model CmsSection {
+  id               String        @id @default(uuid()) @db.Uuid
+  sectionKey       CmsSectionKey
+  locale           Locale
+  draftContent     Json          @default("{}")
+  publishedContent Json?
+  approvedFlags    Json?
+  sourceDoc        String?
+  publishedAt      DateTime?
+  version          Int           @default(1)
+  createdById      String        @db.Uuid
+  updatedById      String?       @db.Uuid
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  createdBy User  @relation("CmsSectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User? @relation("CmsSectionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([sectionKey, locale])
+}
+
+// ---------------------------------------------------------------------------
+// SEO
+// ---------------------------------------------------------------------------
+
+model SeoMeta {
+  id              String     @id @default(uuid()) @db.Uuid
+  targetType      EntityType
+  targetId        String?    @db.Uuid
+  pageKey         String?
+  locale          Locale
+  metaTitle       String?
+  metaDescription String?
+  slugOverride    String?
+  ogImageMediaId  String?    @db.Uuid
+  canonicalUrl    String?
+  noindex         Boolean    @default(false)
+  version         Int        @default(1)
+  createdById     String     @db.Uuid
+  updatedById     String?    @db.Uuid
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  ogImage   Media? @relation("SeoOgImage", fields: [ogImageMediaId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("SeoMetaCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?  @relation("SeoMetaUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([targetType, targetId, locale])
+  @@unique([pageKey, locale])
+}
+
+model SlugRedirect {
+  id         String     @id @default(uuid()) @db.Uuid
+  entityType EntityType
+  locale     Locale
+  oldSlug    String
+  newSlug    String
+  createdAt  DateTime   @default(now())
+
+  @@unique([entityType, oldSlug, locale])
+  @@index([entityType, newSlug, locale])
+}
+
+// ---------------------------------------------------------------------------
+// Leads
+// ---------------------------------------------------------------------------
+
+model Inquiry {
+  id                String      @id @default(uuid()) @db.Uuid
+  type              InquiryType
+  name              String
+  company           String?
+  email             String
+  phone             String?
+  subject           String
+  message           String
+  consentAccepted   Boolean
+  consentAt         DateTime
+  locale            Locale      @default(en)
+  productId         String?     @db.Uuid
+  brandId           String?     @db.Uuid
+  supplierId        String?     @db.Uuid
+  sourcePath        String?
+  referrer          String?
+  status            LeadStatus  @default(new)
+  statusChangedAt   DateTime?
+  statusChangedById String?     @db.Uuid
+  notes             String?
+  createdIpHash     String?
+  version           Int         @default(1)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  brand           Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  supplier        Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  statusChangedBy User?     @relation("InquiryStatusChangedBy", fields: [statusChangedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([productId])
+  @@index([brandId])
+  @@index([supplierId])
+}
+
+model PartnershipRequest {
+  id                String     @id @default(uuid()) @db.Uuid
+  name              String
+  company           String?
+  email             String
+  phone             String?
+  country           String?
+  businessType      String?
+  website           String?
+  productCategory   String?
+  message           String
+  consentAccepted   Boolean
+  consentAt         DateTime
+  locale            Locale     @default(en)
+  productId         String?    @db.Uuid
+  brandId           String?    @db.Uuid
+  supplierId        String?    @db.Uuid
+  attachmentMediaId String?    @db.Uuid
+  sourcePath        String?
+  referrer          String?
+  status            LeadStatus @default(new)
+  statusChangedAt   DateTime?
+  statusChangedById String?    @db.Uuid
+  notes             String?
+  createdIpHash     String?
+  version           Int        @default(1)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  brand           Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  supplier        Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  attachment      Media?    @relation("PartnershipAttachment", fields: [attachmentMediaId], references: [id], onDelete: SetNull)
+  statusChangedBy User?     @relation("PartnershipStatusChangedBy", fields: [statusChangedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([productId])
+  @@index([brandId])
+  @@index([supplierId])
+}
+
+// ---------------------------------------------------------------------------
+// Settings & operational
+// ---------------------------------------------------------------------------
+
+model Settings {
+  key         String   @id
+  valueEn     Json
+  valueAr     Json
+  sourceDoc   String?
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("SettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model ActivityLog {
+  id         String         @id @default(uuid()) @db.Uuid
+  actorId    String         @db.Uuid
+  action     ActivityAction
+  entityType String
+  entityId   String?
+  summary    String?
+  createdAt  DateTime       @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([actorId, createdAt])
+  @@index([action])
+  @@index([entityType, entityId])
+}
+
+model RateLimitCounter {
+  bucketKey   String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([bucketKey, windowStart])
+}
+
+model AuthAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String
+  ipHash    String
+  success   Boolean
+  lockedOut Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipHash, createdAt])
+}

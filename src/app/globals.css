@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/*
+ * Zain design tokens — transcribed 1:1 from docs/DESIGN_SYSTEM.md
+ * (§6 palette, §9 typography scale, §10 spacing, §11 layout, §12 radius).
+ * NO invented values (Constitution XIII).
+ *
+ * Note: DESIGN_SYSTEM.md defines no shadow tokens; none are invented here.
+ *
+ * RTL baseline: all layout uses CSS logical properties (margin-inline,
+ * padding-inline-start, inset-inline, text-align: start) and Tailwind logical
+ * utilities — one layout serves both directions (plan i18n/RTL Approach).
+ */
+
+@theme {
+  /* -----------------------------------------------------------------
+   * Color palette (§6) — exact values from the design system.
+   * ----------------------------------------------------------------- */
+  /* Primary Deep Green — hero overlays, navigation, footer, dark sections */
+  --color-zain-green-950: #062b1b;
+  --color-zain-green-900: #083a24;
+  --color-zain-green-800: #0b4a2d;
+  --color-zain-green-700: #14653a;
+
+  /* Leaf Green — accents, active states, icons */
+  --color-zain-leaf-600: #2f8f46;
+  --color-zain-leaf-500: #4faf3a;
+
+  /* Lime — very sparingly (references the logo leaf) */
+  --color-zain-lime-500: #b6d82a;
+  --color-zain-lime-400: #c9e54a;
+
+  /* Champagne Gold — luxury accent only */
+  --color-zain-gold-500: #c9a45c;
+  --color-zain-gold-400: #d9b66f;
+  --color-zain-gold-300: #e8d29a;
+
+  /* Warm Cream — editorial/light sections */
+  --color-zain-cream-50: #f7f4ec;
+  --color-zain-cream-100: #eee9dc;
+
+  /* Dark Neutral + White */
+  --color-zain-black: #07110d;
+  --color-zain-charcoal: #111814;
+  --color-zain-white: #ffffff;
+
+  /* -----------------------------------------------------------------
+   * Typography (§8/§9). Font families are wired to next/font CSS
+   * variables declared in src/app/[locale]/layout.tsx:
+   *   display: Cormorant Garamond (Latin) / Amiri (Arabic)
+   *   UI/body: Manrope (Latin) / IBM Plex Sans Arabic (Arabic)
+   * ----------------------------------------------------------------- */
+  --font-display: var(--font-cormorant-garamond), var(--font-amiri), serif;
+  --font-sans: var(--font-manrope), var(--font-ibm-plex-sans-arabic), sans-serif;
+
+  /* Responsive typography scale (§9) — clamps verbatim from the doc.
+   * Body/meta ranges from the doc map to their clean in-range values. */
+  --text-hero: clamp(3rem, 7vw, 7.5rem);
+  --text-display: clamp(2.5rem, 5vw, 5rem);
+  --text-h1: clamp(2.25rem, 4vw, 4rem);
+  --text-h2: clamp(1.75rem, 3vw, 3rem);
+  --text-h3: clamp(1.25rem, 2vw, 2rem);
+  --text-body-lg: 1.25rem; /* §9 range: 1.125rem–1.35rem */
+  --text-body: 1rem;        /* §9 range: 1rem–1.125rem */
+  --text-meta: 0.8125rem;   /* §9 range: 0.75rem–0.875rem */
+
+  /* -----------------------------------------------------------------
+   * Spacing (§10): 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 80 / 96 / 128 / 160.
+   * Tailwind v4's 0.25rem-base scale covers the entire approved scale
+   * exactly (p-1=4px … p-40=160px) — no overrides needed, no gaps.
+   * ----------------------------------------------------------------- */
+
+  /* -----------------------------------------------------------------
+   * Radius (§12) — sm 10px / md 16px / lg 24px / xl 32px / 2xl 40px.
+   * Pills stay available for tags, filters, status, compact badges.
+   * ----------------------------------------------------------------- */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-2xl: 40px;
+}
+
+/* Layout container (§11) — recommended values verbatim. */
+@utility container-main {
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 5rem);
+}
+
+/* Logical-properties baseline: body defaults through the UI font stack. */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    text-align: start;
+  }
+}

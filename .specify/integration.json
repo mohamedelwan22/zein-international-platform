@@ -1,0 +1,25 @@
+{
+  "version": "1.0.13",
+  "integration_state_schema": 1,
+  "installed_integrations": [
+    "opencode",
+    "kilocode",
+    "kiro-cli"
+  ],
+  "integration_settings": {
+    "opencode": {
+      "script": "ps",
+      "invoke_separator": "."
+    },
+    "kilocode": {
+      "script": "ps",
+      "invoke_separator": "."
+    },
+    "kiro-cli": {
+      "script": "ps",
+      "invoke_separator": "."
+    }
+  },
+  "integration": "opencode",
+  "default_integration": "opencode"
+}
