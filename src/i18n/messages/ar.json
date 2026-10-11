@@ -64,6 +64,17 @@
     "sustainabilityTitle": "الاستدامة",
     "innovationTitle": "الابتكار"
   },
+  "brands": {
+    "pageTitle": "علاماتنا التجارية",
+    "featuredBadge": "مميزة",
+    "countryLabel": "الدولة",
+    "categoryLabel": "الفئة",
+    "aboutLabel": "نبذة",
+    "historyTitle": "السجل التاريخي",
+    "distributionTitle": "معلومات التوزيع",
+    "productsTitleLabel": "منتجات العلامة التجارية",
+    "backToDirectory": "كل العلامات التجارية"
+  },
   "footer": {
     "navLabel": "تنقل التذييل",
     "navTitle": "استكشف",
@@ -82,6 +93,7 @@
     "workingHoursPending": "سيتم الإعلان عن ساعات العمل قريباً."
   },
   "inquiry": {
+    "cta": "أرسل استفساراً",
     "formTitle": "أرسل استفساراً تجارياً",
     "typeLabel": "نوع الاستفسار",
     "typeProduct": "استفسار عن منتج",
@@ -139,6 +151,24 @@
     "emptyTitle": "لا توجد نتائج",
     "emptyBody": "جرّب مصطلحاً مختلفاً أو تصفح علاماتنا التجارية ومنتجاتنا.",
     "minLengthHint": "أدخل حرفين على الأقل."
+  },
+  "catalog": {
+    "pageTitle": "منتجاتنا",
+    "filterBrand": "العلامة التجارية",
+    "filterCategory": "الفئة",
+    "filterCountry": "بلد المنشأ",
+    "clearFilters": "مسح عوامل التصفية",
+    "allOption": "الكل",
+    "backToDirectory": "كل المنتجات",
+    "skuLabel": "رمز المنتج",
+    "referenceLabel": "المرجع",
+    "brochureLabel": "نشرة المنتج",
+    "shortDescriptionTitle": "الوصف المختصر",
+    "fullDescriptionTitle": "الوصف التفصيلي",
+    "specificationsTitle": "المواصفات",
+    "relatedProducts": "منتجات ذات صلة",
+    "noMatchTitle": "لا توجد منتجات مطابقة لعوامل التصفية",
+    "noMatchBody": "جرّب إزالة أحد عوامل التصفية، أو امسحها جميعاً لتصفح الكتالوج الكامل."
   },
   "auth": {
     "signInTitle": "تسجيل الدخول إلى لوحة التحكم",

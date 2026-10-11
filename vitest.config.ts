@@ -9,6 +9,10 @@ export default defineConfig({
     },
   },
   test: {
+    // Integration files share ONE ephemeral database (tests/integration/
+    // global-setup.ts creates it once per run). Serialize test files so their
+    // before-each cleanups never clobber another file's rows (T039).
+    fileParallelism: false,
     projects: [
       {
         extends: true,

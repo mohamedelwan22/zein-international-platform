@@ -64,6 +64,17 @@
     "sustainabilityTitle": "Sustainability",
     "innovationTitle": "Innovation"
   },
+  "brands": {
+    "pageTitle": "Our brands",
+    "featuredBadge": "Featured",
+    "countryLabel": "Country",
+    "categoryLabel": "Category",
+    "aboutLabel": "About",
+    "historyTitle": "History",
+    "distributionTitle": "Distribution information",
+    "productsTitleLabel": "Brand products",
+    "backToDirectory": "All brands"
+  },
   "footer": {
     "navLabel": "Footer navigation",
     "navTitle": "Explore",
@@ -82,6 +93,7 @@
     "workingHoursPending": "Working hours will be announced soon."
   },
   "inquiry": {
+    "cta": "Send an inquiry",
     "formTitle": "Send a business inquiry",
     "typeLabel": "Inquiry type",
     "typeProduct": "Product inquiry",
@@ -139,6 +151,24 @@
     "emptyTitle": "No results found",
     "emptyBody": "Try a different term or browse our brands and products.",
     "minLengthHint": "Enter at least 2 characters."
+  },
+  "catalog": {
+    "pageTitle": "Our products",
+    "filterBrand": "Brand",
+    "filterCategory": "Category",
+    "filterCountry": "Country of origin",
+    "clearFilters": "Clear filters",
+    "allOption": "All",
+    "backToDirectory": "All products",
+    "skuLabel": "SKU",
+    "referenceLabel": "Reference",
+    "brochureLabel": "Brochure",
+    "shortDescriptionTitle": "Short description",
+    "fullDescriptionTitle": "Full description",
+    "specificationsTitle": "Specifications",
+    "relatedProducts": "Related products",
+    "noMatchTitle": "No products match these filters",
+    "noMatchBody": "Try removing a filter, or clear them all to browse the full catalog."
   },
   "auth": {
     "signInTitle": "Sign in to the admin dashboard",
