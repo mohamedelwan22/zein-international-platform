@@ -200,7 +200,10 @@
     "activity": "Activity log",
     "settings": "Settings",
     "backToSite": "Back to site",
-    "welcome": "Welcome, {name}"
+    "welcome": "Welcome, {name}",
+    "navLabel": "Admin navigation",
+    "noAccessTitle": "Access denied",
+    "modulePlaceholder": "The {module} module is being prepared and will be available soon."
   },
   "errors": {
     "notFoundTitle": "Page not found",

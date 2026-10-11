@@ -200,7 +200,10 @@
     "activity": "سجل النشاط",
     "settings": "الإعدادات",
     "backToSite": "العودة إلى الموقع",
-    "welcome": "مرحباً، {name}"
+    "welcome": "مرحباً، {name}",
+    "navLabel": "التنقل في لوحة التحكم",
+    "noAccessTitle": "تم رفض الوصول",
+    "modulePlaceholder": "وحدة {module} قيد الإعداد وستكون متاحة قريباً."
   },
   "errors": {
     "notFoundTitle": "الصفحة غير موجودة",

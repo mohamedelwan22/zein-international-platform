@@ -137,16 +137,16 @@ description: "Implementation task breakdown for the Zain International Trading B
 ### Tests for User Story 3 (write FIRST, verify they FAIL)
 
 - [x] T045 [P] [US3] Unit test `tests/unit/permissions.test.ts`: exhaustive matrix coverage — every role enum value × every `resource:action` asserts expected allow/deny (SC-004 "100% of privileged admin operations attempted without the required permission are refused", across all four roles) — *pulled forward from Phase 5 to verify T017 (same file/spec; T046/T047 complete the US3 test set)*
-- [ ] T046 [P] [US3] Integration test `tests/integration/auth.test.ts`: sign-in success/failure; "5 / 15 min / account+IP" lockout with recorded event (US3.4 — `AuthAttempt` rows exist for success/failure/lockout) and localized feedback; `tokenVersion` bump invalidates existing tokens immediately (revocation); session expiry forces re-authentication; denied privileged action returns 403 and changes no data (FR-022)
-- [ ] T047 [P] [US3] E2E test `tests/e2e/us3-auth-rbac.spec.ts`: four role accounts each see only their modules (FR-021); direct attempts at forbidden URLs are blocked; sign-out → admin requires re-authentication
+- [x] T046 [P] [US3] Integration test `tests/integration/auth.test.ts`: sign-in success/failure; "5 / 15 min / account+IP" lockout with recorded event (US3.4 — `AuthAttempt` rows exist for success/failure/lockout) and localized feedback; `tokenVersion` bump invalidates existing tokens immediately (revocation); session expiry forces re-authentication; denied privileged action returns 403 and changes no data (FR-022)
+- [x] T047 [P] [US3] E2E test `tests/e2e/us3-auth-rbac.spec.ts`: four role accounts each see only their modules (FR-021); direct attempts at forbidden URLs are blocked; sign-out → admin requires re-authentication
 
 ### Implementation for User Story 3
 
-- [ ] T048 [US3] Auth route handler `src/app/api/auth/[...]/route.ts` wiring the exported Auth.js handlers; sign-in/sign-out server actions in `src/server/auth/actions.ts` with localized error mapping (FR-003)
-- [ ] T049 [US3] Login page `src/app/[locale]/(auth)/login/page.tsx` + localized form (email/password), loading/error states (FR-039), throttled-lockout localized message per data-model §2.1 failedLogins/lockedUntil
-- [ ] T050 [US3] Admin shell `src/app/[locale]/(admin)/admin/layout.tsx`: server-side gate (re-auth on no session), role-scoped sidebar built FROM the permission matrix (Super Admin: everything; CM: pages/CMS/media/SEO; PM: brands/products/categories; SB: clients/inquiries/partnerships), logout control
-- [ ] T051 [US3] Admin landing placeholder `src/app/[locale]/(admin)/admin/page.tsx` (full dashboard in US11) as the post-login destination
-- [ ] T052 [US3] Session-expiry UX `src/components/admin/session-guard.tsx`: localized re-auth prompt mid-edit; unsaved draft content is never silently published (spec edge case "Session expiry mid-edit")
+- [x] T048 [US3] Auth route handler `src/app/api/auth/[...]/route.ts` wiring the exported Auth.js handlers; sign-in/sign-out server actions in `src/server/auth/actions.ts` with localized error mapping (FR-003)
+- [x] T049 [US3] Login page `src/app/[locale]/(auth)/login/page.tsx` + localized form (email/password), loading/error states (FR-039), throttled-lockout localized message per data-model §2.1 failedLogins/lockedUntil
+- [x] T050 [US3] Admin shell `src/app/[locale]/(admin)/admin/layout.tsx`: server-side gate (re-auth on no session), role-scoped sidebar built FROM the permission matrix (Super Admin: everything; CM: pages/CMS/media/SEO; PM: brands/products/categories; SB: clients/inquiries/partnerships), logout control
+- [x] T051 [US3] Admin landing placeholder `src/app/[locale]/(admin)/admin/page.tsx` (full dashboard in US11) as the post-login destination
+- [x] T052 [US3] Session-expiry UX `src/components/admin/session-guard.tsx`: localized re-auth prompt mid-edit; unsaved draft content is never silently published (spec edge case "Session expiry mid-edit")
 
 **Checkpoint**: US3 auth boundary live — only authenticated, permissioned users reach admin content.
 

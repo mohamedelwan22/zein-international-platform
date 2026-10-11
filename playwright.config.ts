@@ -4,6 +4,8 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // T047: provision the four role accounts (idempotent) before the suite.
+  globalSetup: "./tests/e2e/global-setup.ts",
   // Tests run against the dev server (webServer below), which compiles routes
   // on demand. Locally, serialize projects (workers: 1) — concurrent project
   // workers starve the dev server and produce timeout flakes; CI machines
