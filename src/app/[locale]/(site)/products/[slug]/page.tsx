@@ -316,7 +316,12 @@ export default async function ProductDetailPage({ params }: RouteProps) {
           <p className="max-w-xl font-display text-h3 font-medium text-zain-cream-50">
             {product.name}
           </p>
-          <CtaButton href="/contact" surface="dark">
+          <CtaButton
+            href={`/contact?type=product&productId=${product.id}&sourcePath=${encodeURIComponent(
+              `/products/${product.slug}`,
+            )}`}
+            surface="dark"
+          >
             {tInquiry("cta")}
           </CtaButton>
         </div>

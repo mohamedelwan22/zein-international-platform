@@ -10,6 +10,10 @@ export default defineConfig({
   // on demand. Locally, serialize projects (workers: 1) — concurrent project
   // workers starve the dev server and produce timeout flakes; CI machines
   // run projects in parallel. One worker per project keeps runs stable.
+  // On-demand compilation of the admin section (reached via the sign-in
+  // redirect) and the multi-route SC-007/FR-010 specs can exceed the previous
+  // 30s test budget on a cold server, so allow headroom here.
+  timeout: 90_000,
   fullyParallel: false,
   workers: process.env.CI ? 4 : 1,
   forbidOnly: !!process.env.CI,
@@ -23,9 +27,11 @@ export default defineConfig({
   },
   // The webServer is `pnpm dev` (routes compile on demand); assertions need
   // headroom beyond the 5s default for cold compiles and client-side
-  // navigations under concurrent project workers.
+  // navigations under concurrent project workers. The sign-in action's
+  // redirect to the admin dashboard in particular waits on that section's
+  // first Turbopack compile.
   expect: {
-    timeout: 15_000,
+    timeout: 30_000,
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },

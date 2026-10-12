@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
     ".specify/**",
     ".kilo/**",
     ".kiro/**",
+    // Generated test artifacts (gitignored; not application code):
+    "test-results/**",
+    "playwright-report/**",
+    ".playwright-mcp/**",
     "specs/**",
     "docs/**",
     "checklists/**",

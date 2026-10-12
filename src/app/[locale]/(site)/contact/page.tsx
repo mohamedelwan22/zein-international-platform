@@ -3,9 +3,19 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadContactInfo } from "@/server/cache/public-content";
+import { getSettings } from "@/server/services/settings";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
 import { EmptyState } from "@/components/site/cards";
+import { InquiryForm } from "@/components/site/inquiry-form";
+import { INQUIRY_TYPES, type InquiryTypeValue } from "@/server/validation/inquiries";
+
+/**
+ * The inquiry form carries context through `searchParams` (product/brand CTAs)
+ * and reads `Settings.privacy_notice` at request time, so this route blocks
+ * prerendering rather than streaming a placeholder (Next 16 "blocking route").
+ */
+export const instant = false;
 
 /**
  * Contact route (T036, FR-014): presents the approved contact details from
@@ -20,8 +30,24 @@ interface RouteProps {
   params: Promise<{ locale: string }>;
 }
 
+interface PageProps extends RouteProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
 function resolveLocale(raw: string): AppLocale {
   return isAppLocale(raw) ? raw : "en";
+}
+
+/** First value of a (possibly repeated) query parameter. */
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/** Contextual prefill for the embedded inquiry form (product/brand CTAs). */
+function resolveInquiryType(raw: string | undefined): InquiryTypeValue {
+  return (INQUIRY_TYPES as readonly string[]).includes(raw ?? "")
+    ? (raw as InquiryTypeValue)
+    : "general";
 }
 
 export async function generateMetadata({ params }: RouteProps): Promise<Metadata> {
@@ -46,7 +72,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   });
 }
 
-export default async function ContactPage({ params }: RouteProps) {
+export default async function ContactPage({ params, searchParams }: PageProps) {
   const { locale: raw } = await params;
   if (!isAppLocale(raw)) {
     notFound();
@@ -54,11 +80,16 @@ export default async function ContactPage({ params }: RouteProps) {
   const locale = raw;
   setRequestLocale(locale);
 
-  const [contact, tContact, tEmpty] = await Promise.all([
+  const query = await searchParams;
+  const [contact, privacyNotice, tContact, tInquiry, tEmpty] = await Promise.all([
     loadContactInfo(locale),
+    getSettings("privacy_notice", locale),
     getTranslations({ locale, namespace: "contact" }),
+    getTranslations({ locale, namespace: "inquiry" }),
     getTranslations({ locale, namespace: "empty" }),
   ]);
+
+  const defaultType: InquiryTypeValue = resolveInquiryType(firstParam(query.type));
 
   return (
     <Section className="bg-white pb-20 pt-16 md:pb-28 md:pt-24">
@@ -148,6 +179,25 @@ export default async function ContactPage({ params }: RouteProps) {
           <EmptyState title={tEmpty("cmsTitle")} body={tEmpty("cmsBody")} />
         </div>
       )}
+
+      {/* Business inquiry form (FR-016). Context is carried through query
+          params from product/brand detail CTAs; consent copy resolves from
+          Settings.privacy_notice (T060). */}
+      <div className="mt-20 border-t border-zain-green-950/10 pt-16">
+        <h2 className="font-display text-h2 font-medium text-zain-green-950">
+          {tInquiry("formTitle")}
+        </h2>
+        <div className="mt-8 max-w-3xl">
+          <InquiryForm
+            privacyNotice={privacyNotice}
+            defaultType={defaultType}
+            productId={firstParam(query.productId)}
+            brandId={firstParam(query.brandId)}
+            supplierId={firstParam(query.supplierId)}
+            sourcePath={firstParam(query.sourcePath)}
+          />
+        </div>
+      </div>
     </Section>
   );
 }

@@ -134,7 +134,7 @@ export function Navbar() {
           </Suspense>
           <Link
             href="/login"
-            className="hidden text-sm font-medium text-zain-cream-50 transition-colors hover:text-zain-lime-400 sm:inline-flex sm:min-h-9 sm:items-center sm:rounded-sm sm:px-2 lg:text-body"
+            className="hidden text-sm font-medium text-zain-cream-50 transition-colors hover:text-zain-lime-400 lg:inline-flex lg:min-h-9 lg:items-center lg:rounded-sm lg:px-2 lg:text-body"
           >
             {tNav("adminLogin")}
           </Link>
