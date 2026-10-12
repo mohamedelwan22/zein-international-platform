@@ -184,15 +184,15 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 5 (write FIRST, verify they FAIL)
 
-- [ ] T061 [P] [US5] Integration test `tests/integration/partnerships-api.test.ts` per `public-api.md`: `201` with `status: "new"`; disallowed attachment type → `415 UNSUPPORTED_MEDIA_TYPE`; size over "documents ≤ 20 MB" → `413 PAYLOAD_TOO_LARGE`; missing consent → `400`; staff attachment access writes an ActivityLog entry (FR-035); statuses use the same pipeline "new | contacted | inProgress | closed" (Clarification 3); `businessType` accepted per FR-018
-- [ ] T062 [P] [US5] E2E test `tests/e2e/us5-partnership.spec.ts`: SC-003 partnership with attachment completes in under 5 minutes; attachment-error case shows localized file error AND "the rest of the entered data is preserved for correction" (FR-018, edge case "Attachment failures"); admin opens attachment and progresses statuses
+- [X] T061 [P] [US5] Integration test `tests/integration/partnerships-api.test.ts` per `public-api.md`: `201` with `status: "new"`; disallowed attachment type → `415 UNSUPPORTED_MEDIA_TYPE`; size over "documents ≤ 20 MB" → `413 PAYLOAD_TOO_LARGE`; missing consent → `400`; staff attachment access writes an ActivityLog entry (FR-035); statuses use the same pipeline "new | contacted | inProgress | closed" (Clarification 3); `businessType` accepted per FR-018
+- [X] T062 [P] [US5] E2E test `tests/e2e/us5-partnership.spec.ts`: SC-003 partnership with attachment completes in under 5 minutes; attachment-error case shows localized file error AND "the rest of the entered data is preserved for correction" (FR-018, edge case "Attachment failures"); admin opens attachment and progresses statuses
 
 ### Implementation for User Story 5
 
-- [ ] T063 [US5] Implement `src/server/services/partnerships.ts`: `createPartnershipRequest` (fields from FR-018 incl. `businessType` + attachment via `MediaStorage`, validated per T025 caps; reuse shared lead helpers with inquiries), list/detail, `transitionStatus` same pipeline (Clarification 3), `getAttachment` with audit (FR-035)
-- [ ] T064 [US5] Handlers: `src/app/api/partnerships/route.ts` (multipart/JSON per `public-api.md`) + admin endpoints in `src/app/api/admin/partnerships/...` including attachment download with safe `Content-Type`/`Content-Disposition` (FR-033)
-- [ ] T065 [US5] Partnership form `src/components/site/partnership-form.tsx` + route `src/app/[locale]/(site)/partnership/`: company name, contact person, email, phone, country, business type (`businessType` per FR-018, consistent with `data-model.md` §2.13 and `public-api.md`), website, product category, message, attachment (FR-018); consent checkbox linked to privacy notice; localized file errors; entered data preserved on file failure
-- [ ] T066 [US5] Admin partnership queue `src/app/[locale]/(admin)/admin/partnerships/` + list/detail/status/attachment viewer per `contracts/admin-api.md` §4
+- [X] T063 [US5] Implement `src/server/services/partnerships.ts`: `createPartnershipRequest` (fields from FR-018 incl. `businessType` + attachment via `MediaStorage`, validated per T025 caps; reuse shared lead helpers with inquiries), list/detail, `transitionStatus` same pipeline (Clarification 3), `getAttachment` with audit (FR-035)
+- [X] T064 [US5] Handlers: `src/app/api/partnerships/route.ts` (multipart/JSON per `public-api.md`) + admin endpoints in `src/app/api/admin/partnerships/...` including attachment download with safe `Content-Type`/`Content-Disposition` (FR-033)
+- [X] T065 [US5] Partnership form `src/components/site/partnership-form.tsx` + route `src/app/[locale]/(site)/partnership/`: company name, contact person, email, phone, country, business type (`businessType` per FR-018, consistent with `data-model.md` §2.13 and `public-api.md`), website, product category, message, attachment (FR-018); consent checkbox linked to privacy notice; localized file errors; entered data preserved on file failure
+- [X] T066 [US5] Admin partnership queue `src/app/[locale]/(admin)/admin/partnerships/` + list/detail/status/attachment viewer per `contracts/admin-api.md` §4
 
 **Checkpoint**: US5 complete — partnership channel end-to-end with audited attachments.
 

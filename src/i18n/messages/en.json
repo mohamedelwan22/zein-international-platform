@@ -237,7 +237,14 @@
     "previousPage": "Previous",
     "nextPage": "Next",
     "leadNotesEmpty": "No internal notes.",
-    "inquiryDetailHeading": "Inquiry"
+    "inquiryDetailHeading": "Inquiry",
+    "noPartnerships": "No partnership requests yet",
+    "noPartnershipsBody": "New partnership requests submitted from the public site will appear here.",
+    "backToPartnerships": "Back to partnership requests",
+    "partnershipDetailTitle": "Partnership request",
+    "attachmentLabel": "Attachment",
+    "noAttachment": "No attachment provided.",
+    "downloadAttachment": "Download attachment"
   },
   "errors": {
     "notFoundTitle": "Page not found",

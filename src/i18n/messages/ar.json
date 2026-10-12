@@ -237,7 +237,14 @@
     "previousPage": "السابق",
     "nextPage": "التالي",
     "leadNotesEmpty": "لا توجد ملاحظات داخلية.",
-    "inquiryDetailHeading": "استفسار"
+    "inquiryDetailHeading": "الاستفسار",
+    "noPartnerships": "لا توجد طلبات شراكة بعد",
+    "noPartnershipsBody": "ستظهر هنا طلبات الشراكة الجديدة المرسلة من الموقع العام.",
+    "backToPartnerships": "العودة إلى طلبات الشراكة",
+    "partnershipDetailTitle": "طلب شراكة",
+    "attachmentLabel": "المرفق",
+    "noAttachment": "لا يوجد مرفق.",
+    "downloadAttachment": "تنزيل المرفق"
   },
   "errors": {
     "notFoundTitle": "الصفحة غير موجودة",

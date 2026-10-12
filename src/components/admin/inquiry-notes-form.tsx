@@ -14,10 +14,12 @@ export function InquiryNotesForm({
   id,
   notes,
   version,
+  endpoint = "/api/admin/inquiries",
 }: {
   id: string;
   notes: string | null;
   version: number;
+  endpoint?: string;
 }) {
   const t = useTranslations("admin");
   const router = useRouter();
@@ -30,7 +32,7 @@ export function InquiryNotesForm({
     setSaving(true);
     setFeedback(null);
     try {
-      const response = await fetch(`/api/admin/inquiries/${id}`, {
+      const response = await fetch(`${endpoint}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: value, version }),

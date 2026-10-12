@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db/prisma";
 import { createLogger } from "@/lib/logger";
-import { badRequest, notFound, versionConflict } from "@/server/http/errors";
+import { notFound, versionConflict } from "@/server/http/errors";
+import { assertCanTransition, resolvePublishedContext } from "@/server/services/leads";
 import type { InquiryInput } from "@/server/validation/inquiries";
 import type { InquiryType, LeadStatus, Prisma } from "@/generated/prisma/client";
 
@@ -18,24 +19,10 @@ import type { InquiryType, LeadStatus, Prisma } from "@/generated/prisma/client"
 
 const logger = createLogger("inquiries");
 
-/** Forward transitions plus the documented `closed → contacted` reopen. */
-const ALLOWED_TRANSITIONS: Record<LeadStatus, readonly LeadStatus[]> = {
-  new: ["contacted", "inProgress", "closed"],
-  contacted: ["inProgress", "closed"],
-  inProgress: ["closed"],
-  closed: ["contacted"],
-};
-
 export interface InquiryCreated {
   id: string;
   status: LeadStatus;
   createdAt: Date;
-}
-
-export interface InquiryContextIds {
-  productId: string | null;
-  brandId: string | null;
-  supplierId: string | null;
 }
 
 export interface InquiryLead {
@@ -88,36 +75,6 @@ const leadSelect = {
   version: true,
   createdAt: true,
 } satisfies Prisma.InquirySelect;
-
-/** Attach context only for entities that are published + active right now. */
-async function resolvePublishedContext(input: InquiryInput): Promise<InquiryContextIds> {
-  const [product, brand, supplier] = await Promise.all([
-    input.productId
-      ? prisma.product.findFirst({
-          where: { id: input.productId, status: "published", isActive: true },
-          select: { id: true },
-        })
-      : null,
-    input.brandId
-      ? prisma.brand.findFirst({
-          where: { id: input.brandId, status: "published", isActive: true },
-          select: { id: true },
-        })
-      : null,
-    input.supplierId
-      ? prisma.supplier.findFirst({
-          where: { id: input.supplierId, status: "published", isActive: true },
-          select: { id: true },
-        })
-      : null,
-  ]);
-
-  return {
-    productId: product?.id ?? null,
-    brandId: brand?.id ?? null,
-    supplierId: supplier?.id ?? null,
-  };
-}
 
 /**
  * Persist an anonymous inquiry. `ipHash` is a hashed client IP (forensics
@@ -204,11 +161,7 @@ export async function transitionStatus(params: {
   if (current.version !== version) {
     throw versionConflict(current.version);
   }
-  if (!ALLOWED_TRANSITIONS[current.status].includes(status)) {
-    throw badRequest("Invalid status transition", [
-      { path: "status", issue: "invalidType" },
-    ]);
-  }
+  assertCanTransition(current.status, status);
 
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.inquiry.updateMany({

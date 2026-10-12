@@ -31,10 +31,12 @@ export function InquiryStatusControls({
   id,
   status,
   version,
+  endpoint = "/api/admin/inquiries",
 }: {
   id: string;
   status: LeadStatusValue;
   version: number;
+  endpoint?: string;
 }) {
   const t = useTranslations("admin");
   const router = useRouter();
@@ -45,7 +47,7 @@ export function InquiryStatusControls({
     setPending(target);
     setFeedback(null);
     try {
-      const response = await fetch(`/api/admin/inquiries/${id}/status`, {
+      const response = await fetch(`${endpoint}/${id}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: target, version }),
