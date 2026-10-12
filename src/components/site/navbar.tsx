@@ -132,6 +132,12 @@ export function Navbar() {
           <Suspense fallback={null}>
             <LanguageSwitch />
           </Suspense>
+          <Link
+            href="/login"
+            className="hidden text-sm font-medium text-zain-cream-50 transition-colors hover:text-zain-lime-400 sm:inline-flex sm:min-h-9 sm:items-center sm:rounded-sm sm:px-2 lg:text-body"
+          >
+            {tNav("adminLogin")}
+          </Link>
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -174,6 +180,15 @@ export function Navbar() {
               onNavigate={() => setMenuOpen(false)}
             />
           </Suspense>
+          <div className="container-main border-t border-white/10 py-2">
+            <Link
+              href="/login"
+              onClick={() => setMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-sm px-2 py-3 text-body font-medium text-zain-cream-50 transition-colors hover:text-zain-lime-400"
+            >
+              {tNav("adminLogin")}
+            </Link>
+          </div>
         </div>
       ) : null}
     </header>

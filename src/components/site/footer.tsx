@@ -55,6 +55,14 @@ export function SiteFooter({ contact, year }: { contact: ContactInfo | null; yea
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-11 items-center text-body text-zain-cream-50/85 transition-colors hover:text-zain-lime-400"
+                >
+                  {tNav("adminLogin")}
+                </Link>
+              </li>
             </ul>
           </nav>
         </div>

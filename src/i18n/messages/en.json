@@ -28,6 +28,7 @@
     "login": "Sign in",
     "admin": "Admin dashboard",
     "logout": "Sign out",
+    "adminLogin": "Admin Login",
     "menu": "Menu",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
