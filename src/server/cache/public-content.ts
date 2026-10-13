@@ -3,9 +3,12 @@ import {
   getAboutExperience,
   getContactInfo,
   getHomeExperience,
+  getSocialLinks,
+  getWorkingHours,
   type AboutExperience,
   type ContactInfo,
   type HomeExperience,
+  type SocialLinks,
 } from "@/server/services/content";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -44,6 +47,20 @@ export async function loadContactInfo(locale: AppLocale): Promise<ContactInfo | 
   cacheLife("max");
   cacheTag(`settings:contact_info:${locale}`);
   return getContactInfo(locale);
+}
+
+export async function loadWorkingHours(locale: AppLocale): Promise<string | null> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(`settings:working_hours:${locale}`);
+  return getWorkingHours(locale);
+}
+
+export async function loadSocialLinks(locale: AppLocale): Promise<SocialLinks | null> {
+  "use cache";
+  cacheLife("max");
+  cacheTag(`settings:social_links:${locale}`);
+  return getSocialLinks(locale);
 }
 
 /**

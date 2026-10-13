@@ -20,7 +20,7 @@ const localizedBody = z.string().min(1).max(10_000);
 const paragraphs = z.array(localizedBody).max(24);
 
 /** A call to action is a typed label + in-app target — never raw markup. */
-const cta = z.object({
+const cta = z.strictObject({
   label: z.string().min(1).max(200),
   href: z.string().min(1).max(500),
 });
@@ -31,7 +31,7 @@ const cta = z.object({
  * reaching the public render — the flag is never trusted from the payload
  * alone; the content service enforces `approved === true`.
  */
-const statistic = z.object({
+const statistic = z.strictObject({
   label: z.string().min(1).max(200),
   value: z.string().min(1).max(50),
   approved: z.boolean(),
@@ -41,24 +41,24 @@ const statistic = z.object({
 // Section schemas (fixed registry — Constitution IV)
 // ---------------------------------------------------------------------------
 
-export const homeSectionSchema = z.object({
-  hero: z.object({
+export const homeSectionSchema = z.strictObject({
+  hero: z.strictObject({
     headline: z.string().min(1).max(300),
     supporting: localizedBody,
   }),
-  ctas: z.object({ primary: cta, secondary: cta }).optional(),
+  ctas: z.strictObject({ primary: cta, secondary: cta }).optional(),
   statistics: z.array(statistic).default([]),
-  aboutPreview: z.object({ body: localizedBody }),
-  mission: z.object({ body: localizedBody }),
-  vision: z.object({ body: localizedBody }),
-  sustainability: z.object({ body: localizedBody }),
-  innovation: z.object({ body: localizedBody }),
-  geographicPresence: z.object({ body: localizedBody }),
+  aboutPreview: z.strictObject({ body: localizedBody }),
+  mission: z.strictObject({ body: localizedBody }),
+  vision: z.strictObject({ body: localizedBody }),
+  sustainability: z.strictObject({ body: localizedBody }),
+  innovation: z.strictObject({ body: localizedBody }),
+  geographicPresence: z.strictObject({ body: localizedBody }),
   /** Curated entity references by slug (FR-038: entities stay data-driven). */
   featuredBrands: z.array(z.string().min(1).max(200)).max(12).optional(),
   featuredProducts: z.array(z.string().min(1).max(200)).max(12).optional(),
   finalCta: z
-    .object({
+    .strictObject({
       title: z.string().min(1).max(300).optional(),
       primary: cta.optional(),
       secondary: cta.optional(),
@@ -66,22 +66,22 @@ export const homeSectionSchema = z.object({
     .optional(),
 });
 
-export const aboutSectionSchema = z.object({
+export const aboutSectionSchema = z.strictObject({
   story: paragraphs,
   history: paragraphs,
   profile: paragraphs,
   journey: paragraphs,
-  mission: z.object({ body: localizedBody }),
-  vision: z.object({ body: localizedBody }),
+  mission: z.strictObject({ body: localizedBody }),
+  vision: z.strictObject({ body: localizedBody }),
   values: z.array(
-    z.object({
+    z.strictObject({
       id: z.string().min(1).max(100),
       title: z.string().min(1).max(200),
       description: localizedBody,
     }),
   ),
-  sustainability: z.object({ paragraphs }),
-  innovation: z.object({ body: localizedBody }),
+  sustainability: z.strictObject({ paragraphs }),
+  innovation: z.strictObject({ body: localizedBody }),
 });
 
 /**
@@ -90,7 +90,7 @@ export const aboutSectionSchema = z.object({
  * this schema completes the fixed registry and is finalized with the US6
  * editing surface — nothing is seeded here yet.
  */
-export const contactSectionSchema = z.object({
+export const contactSectionSchema = z.strictObject({
   phone: z.array(z.string().min(1).max(50)).max(10).optional(),
   email: z.string().email().max(320).optional(),
   address: z.string().max(500).optional(),
@@ -98,7 +98,7 @@ export const contactSectionSchema = z.object({
   mapUrl: z.string().max(1000).optional(),
   socialLinks: z
     .array(
-      z.object({
+      z.strictObject({
         platform: z.string().min(1).max(100),
         url: z.string().min(1).max(1000),
       }),
@@ -132,7 +132,7 @@ export const CMS_SECTION_KEYS = Object.keys(CMS_SECTION_SCHEMAS) as CmsSectionKe
 // Settings value schemas (T031; US6 T069 finalizes the admin surface)
 // ---------------------------------------------------------------------------
 
-export const contactInfoSchema = z.object({
+export const contactInfoSchema = z.strictObject({
   country: z.string().min(1).max(100),
   city: z.string().min(1).max(100),
   district: z.string().min(1).max(200),
@@ -145,7 +145,7 @@ export const contactInfoSchema = z.object({
 
 export const socialLinksSchema = z
   .array(
-    z.object({
+    z.strictObject({
       platform: z.string().min(1).max(100),
       url: z.string().min(1).max(1000),
     }),

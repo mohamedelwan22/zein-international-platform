@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
-import { loadContactInfo } from "@/server/cache/public-content";
+import { loadContactInfo, loadSocialLinks, loadWorkingHours } from "@/server/cache/public-content";
 import { getSettings } from "@/server/services/settings";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
@@ -81,13 +81,16 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
   setRequestLocale(locale);
 
   const query = await searchParams;
-  const [contact, privacyNotice, tContact, tInquiry, tEmpty] = await Promise.all([
-    loadContactInfo(locale),
-    getSettings("privacy_notice", locale),
-    getTranslations({ locale, namespace: "contact" }),
-    getTranslations({ locale, namespace: "inquiry" }),
-    getTranslations({ locale, namespace: "empty" }),
-  ]);
+  const [contact, privacyNotice, workingHours, socialLinks, tContact, tInquiry, tEmpty] =
+    await Promise.all([
+      loadContactInfo(locale),
+      getSettings("privacy_notice", locale),
+      loadWorkingHours(locale),
+      loadSocialLinks(locale),
+      getTranslations({ locale, namespace: "contact" }),
+      getTranslations({ locale, namespace: "inquiry" }),
+      getTranslations({ locale, namespace: "empty" }),
+    ]);
 
   const defaultType: InquiryTypeValue = resolveInquiryType(firstParam(query.type));
 
@@ -163,16 +166,38 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
             </div>
           </div>
 
-          {/* Working hours — pending client content (Open Item 6): surface
-              the localized pending state, never a placeholder value. */}
+          {/* Working hours — CMS/Settings-managed (FR-014/FR-032): show the
+              approved value when set, otherwise the localized pending state. */}
           <div className="mt-6 rounded-lg border border-dashed border-zain-green-950/20 bg-zain-cream-50/60 p-8">
             <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
               {tContact("workingHoursLabel")}
             </h2>
-            <p className="mt-3 text-body text-zain-green-950/70">
-              {tContact("workingHoursPending")}
+            <p className="mt-3 whitespace-pre-wrap text-body text-zain-green-950/70">
+              {workingHours ?? tContact("workingHoursPending")}
             </p>
           </div>
+
+          {socialLinks && socialLinks.length > 0 ? (
+            <div className="mt-6 rounded-lg border border-zain-green-950/10 bg-zain-cream-50/60 p-8">
+              <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
+                {tContact("socialLabel")}
+              </h2>
+              <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+                {socialLinks.map((link) => (
+                  <li key={`${link.platform}-${link.url}`}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
+                    >
+                      {link.platform}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="mt-12">

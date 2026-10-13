@@ -110,9 +110,20 @@ export async function getContactInfo(locale: AppLocale) {
   return getSettings("contact_info", locale);
 }
 
+/** Public working hours (FR-014/FR-032) — null until staff set it. */
+export async function getWorkingHours(locale: AppLocale) {
+  return getSettings("working_hours", locale);
+}
+
+/** Public social links (FR-014) — null until staff set them. */
+export async function getSocialLinks(locale: AppLocale) {
+  return getSettings("social_links", locale);
+}
+
 /** Approved privacy notice for consent copy (FR-016, Open Item 6). */
 export async function getPrivacyNotice(locale: AppLocale) {
   return getSettings("privacy_notice", locale);
 }
 
 export type ContactInfo = SettingsValueFor<"contact_info">;
+export type SocialLinks = SettingsValueFor<"social_links">;
