@@ -230,15 +230,15 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 12 (write FIRST, verify they FAIL)
 
-- [ ] T088 [P] [US12] Integration test `tests/integration/users-media.test.ts`: user create/role-assign takes effect immediately; `tokenVersion` bump on deactivation revokes access at next action (US12.4, data-model §2.1); media upload validation (allowlist + magic bytes + size caps), unauthorized upload refused, archive guarded to unreferenced items; user/permission changes activity-logged (FR-024/035)
-- [ ] T089 [P] [US12] E2E test `tests/e2e/us12-users-media.spec.ts`: create user → sign in as them → revoke role → next action loses access (logged); upload/replace/archive media (verified in this phase); the "reuse in a brand record" step is asserted jointly with T076 once the US7 brand admin module lands (Phase 10) — media API + MediaPicker are already available here
+- [x] T088 [P] [US12] Integration test `tests/integration/users-media.test.ts`: user create/role-assign takes effect immediately; `tokenVersion` bump on deactivation revokes access at next action (US12.4, data-model §2.1); media upload validation (allowlist + magic bytes + size caps), unauthorized upload refused, archive guarded to unreferenced items; user/permission changes activity-logged (FR-024/035)
+- [x] T089 [P] [US12] E2E test `tests/e2e/us12-users-media.spec.ts`: create user → sign in as them → revoke role → next action loses access (logged); upload/replace/archive media (verified in this phase); the "reuse in a brand record" step is asserted jointly with T076 once the US7 brand admin module lands (Phase 10) — media API + MediaPicker are already available here
 
 ### Implementation for User Story 12
 
-- [ ] T090 [P] [US12] Users admin module `src/app/[locale]/(admin)/admin/users/` + endpoints per `admin-api.md` §8 (list, create, update, reset-password, deactivate) permissions users:*; guards "last active Super Admin cannot be deactivated or demoted; a user cannot deactivate themselves" (data-model §2.1)
-- [ ] T091 [P] [US12] Media admin module `src/app/[locale]/(admin)/admin/media/` + endpoints per `admin-api.md` §5 (multipart upload with validation per T025, preview, replace, archive, purge-when-unreferenced, `alt_en`/`alt_ar`) permissions media:*; MediaPicker component for entity forms and brand/product image assignment (consumed by US7, Phase 10)
-- [ ] T092 [US12] Approved-asset reuse: public nav/footer/hero and OG image use `/public/logo.png` + `/public/hero.png` via `next/image` from their actual repository locations — "never regenerated, recreated, recolored, or distorted" (FR-033, US12.3); CI re-runs the SHA-256 equality check from T026
-- [ ] T093 [US12] Wire audit events for user/permission changes and sensitive attachment access into `ActivityLog` (FR-024/035) with correct `tokenVersion` handling (changes apply at next request, US12.4)
+- [x] T090 [P] [US12] Users admin module `src/app/[locale]/(admin)/admin/users/` + endpoints per `admin-api.md` §8 (list, create, update, reset-password, deactivate) permissions users:*; guards "last active Super Admin cannot be deactivated or demoted; a user cannot deactivate themselves" (data-model §2.1)
+- [x] T091 [P] [US12] Media admin module `src/app/[locale]/(admin)/admin/media/` + endpoints per `admin-api.md` §5 (multipart upload with validation per T025, preview, replace, archive, purge-when-unreferenced, `alt_en`/`alt_ar`) permissions media:*; MediaPicker component for entity forms and brand/product image assignment (consumed by US7, Phase 10)
+- [x] T092 [US12] Approved-asset reuse: public nav/footer/hero and OG image use `/public/logo.png` + `/public/hero.png` via `next/image` from their actual repository locations — "never regenerated, recreated, recolored, or distorted" (FR-033, US12.3); CI re-runs the SHA-256 equality check from T026
+- [x] T093 [US12] Wire audit events for user/permission changes and sensitive attachment access into `ActivityLog` (FR-024/035) with correct `tokenVersion` handling (changes apply at next request, US12.4)
 
 **Checkpoint**: US12 — access stays current and media is validated, reusable, and audited.
 
