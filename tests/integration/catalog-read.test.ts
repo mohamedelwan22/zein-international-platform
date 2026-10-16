@@ -5,6 +5,7 @@ import {
   listPublishedBrands,
   listPublishedProducts,
   productDetail,
+  resolveLocalizedSlug,
 } from "@/server/services/catalog";
 
 /**
@@ -1006,5 +1007,63 @@ describe("zero-record catalog (localized empty state source, never a blank page)
     expect(await listPublishedProducts("ar")).toEqual([]);
     expect(await productDetail("en", "anything")).toBeNull();
     expect(await brandDetail("en", "anything")).toBeNull();
+  });
+});
+
+describe("resolveLocalizedSlug — cross-locale slug resolution (BUG-002)", () => {
+  it("maps the other locale's product slug to the target locale's canonical pair", async () => {
+    await seedBaseline();
+
+    // Incoming English slug requested for the Arabic locale (a naive locale
+    // switch that only swaps the prefix) resolves to the Arabic pair.
+    expect(await resolveLocalizedSlug("product", "ar", "alpha-saudi")).toEqual({
+      slug: "alpha-saudi-ar",
+      alternateSlug: "alpha-saudi",
+    });
+    expect(await resolveLocalizedSlug("product", "en", "alpha-saudi-ar")).toEqual(
+      {
+        slug: "alpha-saudi",
+        alternateSlug: "alpha-saudi-ar",
+      },
+    );
+  });
+
+  it("returns the same pair for the product's own-locale slug (no redirect target)", async () => {
+    await seedBaseline();
+
+    expect(await resolveLocalizedSlug("product", "en", "alpha-saudi")).toEqual({
+      slug: "alpha-saudi",
+      alternateSlug: "alpha-saudi-ar",
+    });
+  });
+
+  it("resolves brand slugs across locales", async () => {
+    await seedBaseline();
+
+    expect(await resolveLocalizedSlug("brand", "ar", "alpha-traders")).toEqual({
+      slug: "alpha-traders-ar",
+      alternateSlug: "alpha-traders",
+    });
+    expect(await resolveLocalizedSlug("brand", "en", "alpha-traders-ar")).toEqual(
+      {
+        slug: "alpha-traders",
+        alternateSlug: "alpha-traders-ar",
+      },
+    );
+  });
+
+  it("never resolves unknown or unpublished entities (no orphan public URLs)", async () => {
+    await seedBaseline();
+
+    expect(await resolveLocalizedSlug("product", "en", "does-not-exist")).toBeNull();
+    expect(await resolveLocalizedSlug("brand", "en", "does-not-exist")).toBeNull();
+    // Published product hidden by an inactive brand.
+    expect(
+      await resolveLocalizedSlug("product", "en", "hidden-inactive-brand"),
+    ).toBeNull();
+    // Draft and archived products are not published.
+    expect(await resolveLocalizedSlug("product", "en", "draft-product")).toBeNull();
+    expect(await resolveLocalizedSlug("product", "en", "archived-product")).toBeNull();
+    expect(await resolveLocalizedSlug("brand", "en", "draft-brand")).toBeNull();
   });
 });

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, routing, type AppLocale } from "@/i18n/routing";
 import { loadBrandDetail } from "@/server/cache/catalog-content";
-import { listPublishedBrands } from "@/server/services/catalog";
+import {
+  listPublishedBrands,
+  resolveLocalizedSlug,
+} from "@/server/services/catalog";
 import { buildPublicMetadata } from "@/lib/seo";
+import { decodeSlugParam } from "@/lib/slug";
 import { Section, SectionHeading } from "@/components/site/section-heading";
 import { ProductCard, EmptyState } from "@/components/site/cards";
 import { MediaImage } from "@/components/site/media-image";
@@ -64,8 +68,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: RouteProps): Promise<Metadata> {
-  const { locale: raw, slug } = await params;
+  const { locale: raw, slug: rawSlug } = await params;
   const locale = resolveLocale(raw);
+  const slug = decodeSlugParam(rawSlug);
   setRequestLocale(locale);
 
   const [brand, tBrands, tEmpty] = await Promise.all([
@@ -74,20 +79,31 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     getTranslations({ locale, namespace: "empty" }),
   ]);
 
+  // Slugs are localized, so each locale's detail URL differs (BUG-002).
+  const pair = brand ? await resolveLocalizedSlug("brand", locale, slug) : null;
+  const languagePaths = pair
+    ? {
+        en: `/brands/${locale === "en" ? pair.slug : pair.alternateSlug}`,
+        ar: `/brands/${locale === "ar" ? pair.slug : pair.alternateSlug}`,
+      }
+    : undefined;
+
   return buildPublicMetadata({
     locale,
     path: `/brands/${slug}`,
     title: brand?.name ?? tBrands("pageTitle"),
     description: brand?.summary ?? brand?.history ?? tEmpty("brandsBody"),
+    languagePaths,
   });
 }
 
 export default async function BrandDetailPage({ params }: RouteProps) {
-  const { locale: raw, slug } = await params;
+  const { locale: raw, slug: rawSlug } = await params;
   if (!isAppLocale(raw)) {
     notFound();
   }
   const locale = raw;
+  const slug = decodeSlugParam(rawSlug);
   setRequestLocale(locale);
 
   const [brand, tBrands, tInquiry, tCommon, tEmpty] = await Promise.all([
@@ -99,6 +115,13 @@ export default async function BrandDetailPage({ params }: RouteProps) {
   ]);
 
   if (!brand) {
+    // The slug may be the OTHER locale's slug — e.g. a locale switch or a
+    // shared link that swapped only the prefix (BUG-002). Resolve it to this
+    // locale's canonical slug and redirect there instead of 404ing.
+    const pair = await resolveLocalizedSlug("brand", locale, slug);
+    if (pair && pair.slug !== slug) {
+      permanentRedirect(`/${locale}/brands/${encodeURIComponent(pair.slug)}`);
+    }
     notFound();
   }
 

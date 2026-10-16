@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, routing, type AppLocale } from "@/i18n/routing";
 import {
   loadProductDetail,
   loadProducts,
 } from "@/server/cache/catalog-content";
-import { listPublishedProducts } from "@/server/services/catalog";
+import {
+  listPublishedProducts,
+  resolveLocalizedSlug,
+} from "@/server/services/catalog";
 import type { PublishedProductSummary } from "@/server/services/catalog";
 import { buildPublicMetadata } from "@/lib/seo";
+import { decodeSlugParam } from "@/lib/slug";
 import { Section, SectionHeading } from "@/components/site/section-heading";
 import { ProductCard } from "@/components/site/cards";
 import { MediaImage } from "@/components/site/media-image";
@@ -69,8 +73,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: RouteProps): Promise<Metadata> {
-  const { locale: raw, slug } = await params;
+  const { locale: raw, slug: rawSlug } = await params;
   const locale = resolveLocale(raw);
+  const slug = decodeSlugParam(rawSlug);
   setRequestLocale(locale);
 
   const [product, tCatalog, tEmpty] = await Promise.all([
@@ -79,11 +84,24 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     getTranslations({ locale, namespace: "empty" }),
   ]);
 
+  // Slugs are localized, so each locale's detail URL differs (BUG-002). Emit
+  // correct hreflang alternates rather than the same slug in both locales.
+  const pair = product
+    ? await resolveLocalizedSlug("product", locale, slug)
+    : null;
+  const languagePaths = pair
+    ? {
+        en: `/products/${locale === "en" ? pair.slug : pair.alternateSlug}`,
+        ar: `/products/${locale === "ar" ? pair.slug : pair.alternateSlug}`,
+      }
+    : undefined;
+
   return buildPublicMetadata({
     locale,
     path: `/products/${slug}`,
     title: product?.name ?? tCatalog("pageTitle"),
     description: product?.summary ?? tEmpty("productsBody"),
+    languagePaths,
   });
 }
 
@@ -106,11 +124,12 @@ function renderSpecValue(value: unknown): string {
 }
 
 export default async function ProductDetailPage({ params }: RouteProps) {
-  const { locale: raw, slug } = await params;
+  const { locale: raw, slug: rawSlug } = await params;
   if (!isAppLocale(raw)) {
     notFound();
   }
   const locale = raw;
+  const slug = decodeSlugParam(rawSlug);
   setRequestLocale(locale);
 
   const [product, tCatalog, tInquiry, tCommon] = await Promise.all([
@@ -121,6 +140,13 @@ export default async function ProductDetailPage({ params }: RouteProps) {
   ]);
 
   if (!product) {
+    // The slug may be the OTHER locale's slug — e.g. a locale switch or a
+    // shared link that swapped only the prefix (BUG-002). Resolve it to this
+    // locale's canonical slug and redirect there instead of 404ing.
+    const pair = await resolveLocalizedSlug("product", locale, slug);
+    if (pair && pair.slug !== slug) {
+      permanentRedirect(`/${locale}/products/${encodeURIComponent(pair.slug)}`);
+    }
     notFound();
   }
 

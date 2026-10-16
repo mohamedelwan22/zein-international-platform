@@ -22,6 +22,7 @@ export function SiteFooter({ contact, year }: { contact: ContactInfo | null; yea
     { href: "/sustainability", label: tAbout("sustainabilityTitle") },
     { href: "/values", label: tAbout("valuesTitle") },
     { href: "/innovation", label: tAbout("innovationTitle") },
+    { href: "/geographic-presence", label: tNav("geographicPresence") },
     { href: "/contact", label: tNav("contact") },
   ];
 

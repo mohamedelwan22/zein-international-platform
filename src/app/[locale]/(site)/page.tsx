@@ -52,10 +52,11 @@ export default async function HomePage({ params }: RouteProps) {
   const locale = raw;
   setRequestLocale(locale);
 
-  const [experience, tFooter, tEmpty] = await Promise.all([
+  const [experience, tFooter, tEmpty, tCommon] = await Promise.all([
     loadHomeExperience(locale),
     getTranslations({ locale, namespace: "footer" }),
     getTranslations({ locale, namespace: "empty" }),
+    getTranslations({ locale, namespace: "common" }),
   ]);
 
   if (!experience.hero) {
@@ -147,7 +148,11 @@ export default async function HomePage({ params }: RouteProps) {
       {/* Geographic presence teaser — approved wording only (FR-013). */}
       {experience.geographicPresence ? (
         <Section className="bg-zain-cream-100 py-20 md:py-28">
-          <SectionHeading namespace="home" titleKey="geographicPresenceTitle" />
+          <SectionHeading
+            namespace="home"
+            titleKey="geographicPresenceTitle"
+            link={{ href: "/geographic-presence", label: tCommon("seeMore") }}
+          />
           <p className="prose-editorial mt-6 text-body-lg text-zain-green-950/80">
             {experience.geographicPresence.body}
           </p>

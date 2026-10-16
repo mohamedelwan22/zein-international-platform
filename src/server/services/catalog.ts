@@ -87,6 +87,15 @@ export interface CatalogFilters {
   country?: string;
 }
 
+/**
+ * A published detail entity's slugs in both locales. `slug` is the canonical
+ * slug for the requested locale; `alternateSlug` is the other locale's slug.
+ */
+export interface LocalizedSlugPair {
+  slug: string;
+  alternateSlug: string;
+}
+
 // ---------------------------------------------------------------------------
 // Column helpers
 // ---------------------------------------------------------------------------
@@ -605,4 +614,56 @@ export async function brandDetail(
   });
 
   return row ? mapBrandDetail(locale, row) : null;
+}
+
+/** Map a slug row to the requested locale's canonical slug pair. */
+function toSlugPair(
+  locale: AppLocale,
+  row: { slugEn: string; slugAr: string },
+): LocalizedSlugPair | null {
+  const other: AppLocale = locale === "en" ? "ar" : "en";
+  const slug = pickLocalized(locale, { en: row.slugEn, ar: row.slugAr });
+  const alternateSlug = pickLocalized(other, { en: row.slugEn, ar: row.slugAr });
+  if (!slug || !alternateSlug) return null;
+  return { slug: slug.text, alternateSlug: alternateSlug.text };
+}
+
+/**
+ * Resolve a detail-route slug that may belong to EITHER locale (BUG-002).
+ *
+ * Slug resolution in the public catalog is per-locale (`slugEn` vs `slugAr`),
+ * so a cross-locale URL — e.g. the locale switch naively swapping the prefix
+ * while keeping the English slug, `/ar/products/<en-slug>` — matches no row and
+ * 404s. This looks the slug up against both columns and returns the canonical
+ * localized slug pair, letting a page redirect to the target locale's slug and
+ * letting `generateMetadata` emit correct hreflang alternates. Only
+ * published+active entities resolve (no orphan public URLs).
+ */
+export async function resolveLocalizedSlug(
+  entityType: "product" | "brand",
+  locale: AppLocale,
+  incomingSlug: string,
+): Promise<LocalizedSlugPair | null> {
+  const slugMatch = { OR: [{ slugEn: incomingSlug }, { slugAr: incomingSlug }] };
+  const columns = { slugEn: true, slugAr: true } satisfies Prisma.ProductSelect;
+
+  if (entityType === "brand") {
+    const row = await prisma.brand.findFirst({
+      where: { status: PUBLISHED, isActive: true, ...slugMatch },
+      select: columns,
+    });
+    return row ? toSlugPair(locale, row) : null;
+  }
+
+  const row = await prisma.product.findFirst({
+    where: {
+      status: PUBLISHED,
+      isActive: true,
+      brand: { status: PUBLISHED, isActive: true },
+      categories: { some: { category: publishedCategoryWhere } },
+      ...slugMatch,
+    },
+    select: columns,
+  });
+  return row ? toSlugPair(locale, row) : null;
 }

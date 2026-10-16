@@ -38,6 +38,12 @@ export interface PublicMetadataInput {
   description: string;
   /** Omit on localized utility pages that should not be indexed twice. */
   noindex?: boolean;
+  /**
+   * Per-locale path overrides for the `hreflang` alternates, for routes whose
+   * slug differs by locale (detail pages, BUG-002). Keys omit the locale
+   * prefix; any locale left out falls back to `path`.
+   */
+  languagePaths?: Partial<Record<AppLocale, string>>;
 }
 
 export function buildPublicMetadata({
@@ -46,7 +52,10 @@ export function buildPublicMetadata({
   title,
   description,
   noindex = false,
+  languagePaths,
 }: PublicMetadataInput): Metadata {
+  const enPath = languagePaths?.en ?? path;
+  const arPath = languagePaths?.ar ?? path;
   const siteUrl = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   const company = COMPANY[locale];
   const canonical = `${siteUrl}/${locale}${path === "/" ? "" : path}`;
@@ -61,8 +70,8 @@ export function buildPublicMetadata({
     alternates: {
       canonical,
       languages: {
-        en: `${siteUrl}/en${path === "/" ? "" : path}`,
-        ar: `${siteUrl}/ar${path === "/" ? "" : path}`,
+        en: `${siteUrl}/en${enPath === "/" ? "" : enPath}`,
+        ar: `${siteUrl}/ar${arPath === "/" ? "" : arPath}`,
       },
     },
     openGraph: {
