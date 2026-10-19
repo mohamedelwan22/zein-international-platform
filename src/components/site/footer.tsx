@@ -19,6 +19,8 @@ export function SiteFooter({ contact, year }: { contact: ContactInfo | null; yea
 
   const footerLinks = [
     { href: "/about", label: tNav("about") },
+    { href: "/suppliers", label: tNav("suppliers") },
+    { href: "/clients", label: tNav("clients") },
     { href: "/sustainability", label: tAbout("sustainabilityTitle") },
     { href: "/values", label: tAbout("valuesTitle") },
     { href: "/innovation", label: tAbout("innovationTitle") },

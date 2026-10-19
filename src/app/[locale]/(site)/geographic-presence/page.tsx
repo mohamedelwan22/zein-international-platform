@@ -9,8 +9,7 @@ import { env } from "@/lib/env";
 import { Section } from "@/components/site/section-heading";
 import { EmptyState } from "@/components/site/cards";
 import { CtaSection } from "@/components/site/cta-section";
-import { MapSection } from "@/components/geography/map-section";
-import type { MapPoint } from "@/components/geography/map-provider";
+import { LocationExplorer } from "@/components/geography/location-explorer";
 
 /**
  * Geographic-presence experience (T087, FR-013, US8).
@@ -58,34 +57,19 @@ export default async function GeographicPresencePage({ params }: RouteProps) {
   const locale = raw;
   setRequestLocale(locale);
 
-  const [experience, contact, locations, tHome, tContact, tEmpty, tCommon] =
+  const [experience, contact, locations, tHome, tGeography, tEmpty] =
     await Promise.all([
       loadHomeExperience(locale),
       loadContactInfo(locale),
       loadVerifiedLocations(locale),
       getTranslations({ locale, namespace: "home" }),
-      getTranslations({ locale, namespace: "contact" }),
+      getTranslations({ locale, namespace: "geography" }),
       getTranslations({ locale, namespace: "empty" }),
-      getTranslations({ locale, namespace: "common" }),
     ]);
 
   // Approved coverage wording — shown whether or not locations are verified
   // (US8 scenario 4: the page always presents the approved wording).
   const coverage = experience.geographicPresence?.body ?? null;
-
-  // Only verified locations that carry coordinates become map pins.
-  const points: MapPoint[] = locations.flatMap((location) =>
-    location.latitude !== null && location.longitude !== null
-      ? [
-          {
-            id: location.id,
-            latitude: location.latitude,
-            longitude: location.longitude,
-            label: location.city,
-          },
-        ]
-      : [],
-  );
 
   return (
     <>
@@ -95,7 +79,10 @@ export default async function GeographicPresencePage({ params }: RouteProps) {
         </h1>
 
         {coverage ? (
-          <p className="prose-editorial mt-6 max-w-2xl text-body-lg text-zain-green-950/80">
+          <p
+            data-testid="geographic-coverage"
+            className="prose-editorial mt-6 max-w-2xl text-body-lg text-zain-green-950/80"
+          >
             {coverage}
           </p>
         ) : null}
@@ -103,7 +90,7 @@ export default async function GeographicPresencePage({ params }: RouteProps) {
         {contact ? (
           <div className="mt-12 max-w-xl rounded-lg border border-zain-green-950/10 bg-white p-8">
             <h2 className="text-meta font-semibold uppercase tracking-wide text-zain-green-700">
-              {tContact("addressLabel")}
+              {tGeography("corporateAddressTitle")}
             </h2>
             <address className="mt-4 space-y-1 text-body not-italic text-zain-green-950/85">
               <p>{contact.country}</p>
@@ -119,78 +106,34 @@ export default async function GeographicPresencePage({ params }: RouteProps) {
       <Section className="bg-white pb-24 md:pb-32">
         {locations.length > 0 ? (
           <>
-            {points.length > 0 ? (
-              <MapSection
-                points={points}
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+              <h2 className="font-display text-h2 font-medium text-zain-green-950">
+                {tGeography("coverageTitle")}
+              </h2>
+              <p className="text-meta text-zain-green-950/70">
+                {tGeography("locationCountLabel")}:{" "}
+                <span data-testid="location-count">{locations.length}</span>
+              </p>
+            </div>
+
+            <div className="mt-10">
+              <LocationExplorer
+                locations={locations}
                 provider={env.MAP_PROVIDER}
                 token={env.MAP_TOKEN}
-                ariaLabel={tHome("geographicPresenceTitle")}
-                className="h-80 w-full overflow-hidden rounded-lg border border-zain-green-950/10 md:h-[28rem]"
+                mapAriaLabel={tHome("geographicPresenceTitle")}
               />
-            ) : null}
-
-            <ul
-              className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${
-                points.length > 0 ? "mt-12" : ""
-              }`}
-            >
-              {locations.map((location) => (
-                <li
-                  key={location.id}
-                  className="flex h-full flex-col rounded-lg border border-zain-green-950/10 bg-zain-cream-50 p-8"
-                >
-                  <h3 className="font-display text-h3 font-medium text-zain-green-950">
-                    {location.city}
-                  </h3>
-                  <address className="mt-3 space-y-1 text-body not-italic text-zain-green-950/80">
-                    {location.region ? <p>{location.region}</p> : null}
-                    <p>{location.address}</p>
-                    {location.countryCode ? <p dir="ltr">{location.countryCode}</p> : null}
-                  </address>
-
-                  {location.coverage ? (
-                    <p className="mt-4 text-body text-zain-green-950/70">
-                      {location.coverage}
-                    </p>
-                  ) : null}
-
-                  {location.phone || location.email || location.mapUrl ? (
-                    <div className="mt-4 flex flex-col gap-1">
-                      {location.phone ? (
-                        <a
-                          href={`tel:${location.phone}`}
-                          dir="ltr"
-                          className="inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
-                        >
-                          {location.phone}
-                        </a>
-                      ) : null}
-                      {location.email ? (
-                        <a
-                          href={`mailto:${location.email}`}
-                          className="inline-flex min-h-11 items-center text-body text-zain-green-950/85 underline-offset-4 hover:text-zain-green-700 hover:underline"
-                        >
-                          {location.email}
-                        </a>
-                      ) : null}
-                      {location.mapUrl ? (
-                        <a
-                          href={location.mapUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex min-h-11 items-center text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
-                        >
-                          {tCommon("seeMore")}
-                        </a>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            </div>
           </>
         ) : (
-          <EmptyState title={tEmpty("locationsTitle")} body={tEmpty("locationsBody")} />
+          <>
+            <h2 className="font-display text-h2 font-medium text-zain-green-950">
+              {tGeography("coverageTitle")}
+            </h2>
+            <div className="mt-10">
+              <EmptyState title={tEmpty("locationsTitle")} body={tEmpty("locationsBody")} />
+            </div>
+          </>
         )}
       </Section>
 

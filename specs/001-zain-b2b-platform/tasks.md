@@ -278,13 +278,13 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 8 (write FIRST, verify they FAIL)
 
-- [ ] T083 [P] [US8] Integration test `tests/integration/public-directories.test.ts`: suppliers appear only when disclosed AND published (FR-011); confidential clients absent from ALL public output incl. metadata (FR-012); locations render only when `isVerified` AND published (FR-013); with zero verified locations, the page still presents approved coverage wording without fabricated map points (spec US8 scenario 4)
-- [ ] T084 [P] [US8] E2E test `tests/e2e/us8-directories.spec.ts`: supplier detail, clients page (approved only), geographic-presence both with a verified location and with none — approved wording "distributed throughout the Kingdom and across borders" present either way; may run against **placeholder** fixtures derived from the approved product concept (flagged non-published — Constitution III; never invented facts); keep the zero-verified-locations empty-state assertion
+- [x] T083 [P] [US8] Integration test `tests/integration/public-directories.test.ts`: suppliers appear only when disclosed AND published (FR-011); confidential clients absent from ALL public output incl. metadata (FR-012); locations render only when `isVerified` AND published (FR-013); with zero verified locations, the page still presents approved coverage wording without fabricated map points (spec US8 scenario 4)
+- [x] T084 [P] [US8] E2E test `tests/e2e/us8-directories.spec.ts`: supplier detail, clients page (approved only), geographic-presence both with a verified location and with none — approved wording "distributed throughout the Kingdom and across borders" present either way; may run against **placeholder** fixtures derived from the approved product concept (flagged non-published — Constitution III; never invented facts); keep the zero-verified-locations empty-state assertion
 
 ### Implementation for User Story 8
 
-- [ ] T085 [P] [US8] Suppliers public routes `src/app/[locale]/(site)/suppliers/page.tsx` + `.../suppliers/[slug]/page.tsx`: name (bilingual), country, logo, cover, description, history, categories, products, website, contact info — disclosure-approved only (FR-011)
-- [ ] T086 [P] [US8] Clients public route `src/app/[locale]/(site)/clients/page.tsx`: approved client logos/categories/descriptions, disclosureApproved-only (FR-012), confidential data excluded at query layer (data-model §2.6 rule — "never by UI filtering")
+- [x] T085 [P] [US8] Suppliers public routes `src/app/[locale]/(site)/suppliers/page.tsx` + `.../suppliers/[slug]/page.tsx`: name (bilingual), country, logo, cover, description, history, categories, products, website, contact info — disclosure-approved only (FR-011)
+- [x] T086 [P] [US8] Clients public route `src/app/[locale]/(site)/clients/page.tsx`: approved client logos/categories/descriptions, disclosureApproved-only (FR-012), confidential data excluded at query layer (data-model §2.6 rule — "never by UI filtering")
 - [x] T087 [P] [US8] Geographic presence `src/app/[locale]/(site)/geographic-presence/page.tsx`: confirmed Jeddah address from Settings, verified-locations list, `src/components/geography/map-section.tsx` provider-neutral adapter (default Leaflet + OpenStreetMap; provider is client-confirmed Open Item 7 — adapter isolates it); text fallback whenever coordinates are absent (FR-013 edge cases)
 
 **Checkpoint**: US8 — credibility pages live, strictly governed by disclosure/verification flags.

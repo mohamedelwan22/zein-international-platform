@@ -36,6 +36,13 @@ export interface FieldDef {
   name: string;
   /** Translation key in the `admin` namespace. */
   labelKey: string;
+  /**
+   * Optional secondary translation key (also in `admin`) rendered under the
+   * control. Used where the field is a hard prerequisite for a separate
+   * lifecycle step — e.g. `disclosureApproved` gates public listing for
+   * suppliers/clients independently of Publish (data-model §2.5/§2.6).
+   */
+  hintKey?: string;
   kind: FieldKind;
   localized?: boolean;
   required?: boolean;
@@ -168,7 +175,7 @@ export const ENTITY_META: Record<AdminResource, EntityMeta> = {
       { name: "logoMediaId", labelKey: "fieldLogo", kind: "media" },
       { name: "coverMediaId", labelKey: "fieldCover", kind: "media" },
       { name: "categoryIds", labelKey: "fieldCategories", kind: "categories", required: true },
-      { name: "disclosureApproved", labelKey: "fieldDisclosure", kind: "boolean" },
+      { name: "disclosureApproved", labelKey: "fieldDisclosure", hintKey: "fieldDisclosureHint", kind: "boolean" },
       { name: "isActive", labelKey: "fieldActive", kind: "boolean", default: true },
       { name: "sortOrder", labelKey: "fieldSortOrder", kind: "number" },
     ],
@@ -192,7 +199,7 @@ export const ENTITY_META: Record<AdminResource, EntityMeta> = {
       { name: "description", labelKey: "fieldDescription", kind: "textarea", localized: true },
       { name: "website", labelKey: "fieldWebsite", kind: "url" },
       { name: "logoMediaId", labelKey: "fieldLogo", kind: "media" },
-      { name: "disclosureApproved", labelKey: "fieldDisclosure", kind: "boolean" },
+      { name: "disclosureApproved", labelKey: "fieldDisclosure", hintKey: "fieldDisclosureHint", kind: "boolean" },
       { name: "isActive", labelKey: "fieldActive", kind: "boolean", default: true },
       { name: "sortOrder", labelKey: "fieldSortOrder", kind: "number" },
     ],

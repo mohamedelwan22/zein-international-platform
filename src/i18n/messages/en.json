@@ -422,6 +422,7 @@
     "fieldPhone": "Phone",
     "fieldEmail": "Email",
     "fieldDisclosure": "Disclosure approved",
+    "fieldDisclosureHint": "Required for the public directory. Publishing alone does not list the record — it stays hidden until disclosure is approved.",
     "fieldIndustry": "Industry",
     "fieldLocation": "Location",
     "fieldCity": "City",
@@ -550,5 +551,33 @@
     "selfDeactivate": "You cannot deactivate your own account.",
     "mediaInUse": "This media is still in use by a record.",
     "mediaNotArchived": "Archive the media before deleting it permanently."
+  },
+  "suppliers": {
+    "pageTitle": "Our suppliers",
+    "countryLabel": "Country",
+    "categoryLabel": "Category",
+    "aboutLabel": "About",
+    "historyTitle": "Company history",
+    "productsTitleLabel": "Supplier products",
+    "contactTitle": "Contact information",
+    "websiteLabel": "Website",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "backToDirectory": "All suppliers"
+  },
+  "clients": {
+    "pageTitle": "Our clients",
+    "industryLabel": "Industry",
+    "locationLabel": "Location",
+    "websiteLabel": "Website"
+  },
+  "geography": {
+    "coverageTitle": "Our coverage",
+    "locationsTitle": "Verified locations",
+    "corporateAddressTitle": "Corporate address",
+    "viewOnMap": "View on map",
+    "showingOnMap": "Selected on the map: {name}",
+    "mapInstruction": "Select a location to highlight it on the map.",
+    "locationCountLabel": "Verified locations listed"
   }
 }

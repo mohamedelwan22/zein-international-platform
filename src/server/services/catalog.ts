@@ -537,6 +537,33 @@ export async function listPublishedProducts(
   });
 }
 
+/**
+ * Published+active products supplied by one supplier, ordered by `sortOrder`
+ * (FR-011 — the supplier detail's product list). Uses the same orphan-proof
+ * predicate as the product directory (data-model §2.4).
+ */
+export async function listPublishedProductsBySupplier(
+  locale: AppLocale,
+  supplierId: string,
+): Promise<PublishedProductSummary[]> {
+  const rows = await prisma.product.findMany({
+    where: {
+      supplierId,
+      status: PUBLISHED,
+      isActive: true,
+      brand: { status: PUBLISHED, isActive: true },
+      categories: { some: { category: publishedCategoryWhere } },
+    },
+    orderBy: { sortOrder: "asc" },
+    select: productSummarySelect,
+  });
+
+  return rows.flatMap((row) => {
+    const mapped = mapProductSummary(locale, row);
+    return mapped ? [mapped] : [];
+  });
+}
+
 /** True when a slug is currently owned by an entity (any publication state). */
 async function entitySlugExists(
   entityType: EntityType,
@@ -553,6 +580,11 @@ async function entitySlugExists(
 
   if (entityType === "product") {
     const row = await prisma.product.findFirst({ where, select: { id: true } });
+    return row !== null;
+  }
+
+  if (entityType === "supplier") {
+    const row = await prisma.supplier.findFirst({ where, select: { id: true } });
     return row !== null;
   }
 
@@ -640,7 +672,7 @@ function toSlugPair(
  * published+active entities resolve (no orphan public URLs).
  */
 export async function resolveLocalizedSlug(
-  entityType: "product" | "brand",
+  entityType: "product" | "brand" | "supplier",
   locale: AppLocale,
   incomingSlug: string,
 ): Promise<LocalizedSlugPair | null> {
@@ -650,6 +682,15 @@ export async function resolveLocalizedSlug(
   if (entityType === "brand") {
     const row = await prisma.brand.findFirst({
       where: { status: PUBLISHED, isActive: true, ...slugMatch },
+      select: columns,
+    });
+    return row ? toSlugPair(locale, row) : null;
+  }
+
+  if (entityType === "supplier") {
+    // Suppliers are additionally disclosure-gated (data-model §2.5).
+    const row = await prisma.supplier.findFirst({
+      where: { disclosureApproved: true, status: PUBLISHED, isActive: true, ...slugMatch },
       select: columns,
     });
     return row ? toSlugPair(locale, row) : null;

@@ -864,17 +864,30 @@ function FieldInput(props: FieldInputProps) {
   const id = `entity-${name}`;
 
   if (field.kind === "boolean") {
+    // The hint lives OUTSIDE the <label> so clicking it does not toggle the
+    // checkbox; it is still wired via `aria-describedby`.
+    const hintId = `${id}-hint`;
+    const hint = field.hintKey ? t(field.hintKey as never) : null;
+
     return (
-      <label className="flex min-h-11 items-center gap-3 text-body text-zain-green-950">
-        <input
-          id={id}
-          type="checkbox"
-          checked={Boolean(value)}
-          onChange={(event) => set(name, event.target.checked)}
-          className="h-5 w-5 rounded-sm border border-zain-green-950/40"
-        />
-        <span className="text-meta font-semibold">{describedLabel}</span>
-      </label>
+      <div className="flex flex-col gap-1">
+        <label className="flex min-h-11 items-center gap-3 text-body text-zain-green-950">
+          <input
+            id={id}
+            type="checkbox"
+            checked={Boolean(value)}
+            onChange={(event) => set(name, event.target.checked)}
+            aria-describedby={hint ? hintId : undefined}
+            className="h-5 w-5 rounded-sm border border-zain-green-950/40"
+          />
+          <span className="text-meta font-semibold">{describedLabel}</span>
+        </label>
+        {hint ? (
+          <p id={hintId} className="max-w-prose ps-8 text-meta text-zain-green-950/60">
+            {hint}
+          </p>
+        ) : null}
+      </div>
     );
   }
 

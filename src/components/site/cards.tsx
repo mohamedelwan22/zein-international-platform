@@ -5,6 +5,10 @@ import type {
   PublishedBrandSummary,
   PublishedProductSummary,
 } from "@/server/services/catalog";
+import type {
+  PublicClientSummary,
+  PublicSupplierSummary,
+} from "@/server/services/directory";
 import type { AboutSection } from "@/server/validation/cms";
 import { MediaImage } from "./media-image";
 
@@ -105,6 +109,101 @@ export function BrandCard({ brand }: { brand: PublishedBrandSummary }) {
           ) : null}
         </div>
       </Link>
+    </article>
+  );
+}
+
+/**
+ * Supplier directory card (T085, FR-011): disclosed suppliers only — logo,
+ * name, origin country, categories, and short description. The whole card links
+ * to the supplier detail page.
+ */
+export function SupplierCard({ supplier }: { supplier: PublicSupplierSummary }) {
+  const t = useTranslations("suppliers");
+
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-zain-green-950/10 bg-white transition-shadow hover:shadow-lg hover:shadow-zain-green-950/5">
+      <Link href={`/suppliers/${supplier.slug}`} className="flex h-full flex-col">
+        <MediaImage mediaId={supplier.logoMediaId} className="aspect-[4/3] w-full" />
+        <div className="flex flex-1 flex-col p-8">
+          <h2 className="font-display text-h3 font-medium text-zain-green-950">
+            {supplier.name}
+          </h2>
+
+          {supplier.originCountry ? (
+            <p className="mt-3 text-meta text-zain-green-950/70">
+              <span className="font-semibold text-zain-green-700">{t("countryLabel")}</span>{" "}
+              {supplier.originCountry}
+            </p>
+          ) : null}
+
+          {supplier.summary ? (
+            <p className="mt-4 text-body text-zain-green-950/75">{supplier.summary}</p>
+          ) : null}
+
+          {supplier.categories.length > 0 ? (
+            <ul className="mt-5 flex flex-wrap gap-2">
+              {supplier.categories.map((category) => (
+                <li
+                  key={category.id}
+                  className="rounded-full border border-zain-green-950/10 px-3 py-1 text-meta text-zain-green-950/70"
+                >
+                  {category.name}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+/**
+ * Client reference card (T086, FR-012): ONLY approved public fields are ever
+ * passed in — name, logo, industry, location, description, and website. No
+ * confidential data reaches this surface.
+ */
+export function ClientCard({ client }: { client: PublicClientSummary }) {
+  const t = useTranslations("clients");
+
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-zain-green-950/10 bg-white">
+      <MediaImage mediaId={client.logoMediaId} className="aspect-[3/2] w-full" />
+      <div className="flex flex-1 flex-col p-8">
+        <h2 className="font-display text-h3 font-medium text-zain-green-950">
+          {client.name}
+        </h2>
+
+        {client.industry ? (
+          <p className="mt-3 text-meta text-zain-green-950/70">
+            <span className="font-semibold text-zain-green-700">{t("industryLabel")}</span>{" "}
+            {client.industry}
+          </p>
+        ) : null}
+
+        {client.location ? (
+          <p className="mt-1 text-meta text-zain-green-950/70">
+            <span className="font-semibold text-zain-green-700">{t("locationLabel")}</span>{" "}
+            {client.location}
+          </p>
+        ) : null}
+
+        {client.description ? (
+          <p className="mt-4 text-body text-zain-green-950/75">{client.description}</p>
+        ) : null}
+
+        {client.website ? (
+          <a
+            href={client.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-flex min-h-11 items-center text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
+          >
+            {t("websiteLabel")}
+          </a>
+        ) : null}
+      </div>
     </article>
   );
 }

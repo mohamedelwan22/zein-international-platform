@@ -422,6 +422,7 @@
     "fieldPhone": "الهاتف",
     "fieldEmail": "البريد الإلكتروني",
     "fieldDisclosure": "تمت الموافقة على الإفصاح",
+    "fieldDisclosureHint": "مطلوب للفهرس العام. النشر وحده لا يكفي لإدراج السجل — يبقى مخفياً حتى تتم الموافقة على الإفصاح.",
     "fieldIndustry": "المجال",
     "fieldLocation": "الموقع",
     "fieldCity": "المدينة",
@@ -550,5 +551,33 @@
     "selfDeactivate": "لا يمكنك تعطيل حسابك الخاص.",
     "mediaInUse": "لا تزال هذه الوسائط مستخدمة في سجل.",
     "mediaNotArchived": "أرشف الوسائط قبل حذفها نهائياً."
+  },
+  "suppliers": {
+    "pageTitle": "الموردون",
+    "countryLabel": "الدولة",
+    "categoryLabel": "الفئة",
+    "aboutLabel": "نبذة",
+    "historyTitle": "تاريخ الشركة",
+    "productsTitleLabel": "منتجات المورد",
+    "contactTitle": "معلومات التواصل",
+    "websiteLabel": "الموقع الإلكتروني",
+    "phoneLabel": "الهاتف",
+    "emailLabel": "البريد الإلكتروني",
+    "backToDirectory": "كل الموردين"
+  },
+  "clients": {
+    "pageTitle": "عملاؤنا",
+    "industryLabel": "القطاع",
+    "locationLabel": "الموقع",
+    "websiteLabel": "الموقع الإلكتروني"
+  },
+  "geography": {
+    "coverageTitle": "نطاق تغطيتنا",
+    "locationsTitle": "المواقع الموثّقة",
+    "corporateAddressTitle": "العنوان الرئيسي",
+    "viewOnMap": "عرض على الخريطة",
+    "showingOnMap": "الموقع المحدد على الخريطة: {name}",
+    "mapInstruction": "اختر موقعاً لإبرازه على الخريطة.",
+    "locationCountLabel": "المواقع الموثّقة المدرجة"
   }
 }
