@@ -4,12 +4,17 @@
 // with per-locale partial unique indexes added in the initial migration (T014).
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  // US9 (T097): required for `datasource.extensions = [pg_trgm]`, which keeps
+  // `migrate dev` aware of the extension the search indexes depend on.
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  // US9 (T097): `gin_trgm_ops` operator class used by the search indexes.
+  extensions = [pg_trgm]
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +214,10 @@ model Category {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  // US9 (T097): STORED generated column — `to_tsvector('simple', …)` over both
+  // locales (data-model §5). Created and indexed by the us9_search_projection migration.
+  search_document Unsupported("tsvector")?
+
   parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children  Category[] @relation("CategoryTree")
   createdBy User       @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -222,6 +231,14 @@ model Category {
   @@unique([kind, slugAr])
   @@index([kind, status, isActive, sortOrder])
   @@index([parentId])
+  // US9 (T097): pg_trgm GIN for substring/prefix matching on slug + name.
+  // `map:` pins the physical name to the applied migration so `migrate dev`
+  // does not report a rename.
+  @@index([slugEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Category_slugEn_trgm_idx")
+  @@index([slugAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Category_slugAr_trgm_idx")
+  @@index([nameEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Category_nameEn_trgm_idx")
+  @@index([nameAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Category_nameAr_trgm_idx")
+  @@index([search_document(ops: raw("tsvector_ops"))], type: Gin, map: "Category_search_document_idx")
 }
 
 model BrandCategory {
@@ -286,8 +303,13 @@ model Brand {
   version         Int           @default(1)
   createdById     String        @db.Uuid
   updatedById     String?       @db.Uuid
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // US9 (T097): STORED generated column — `to_tsvector('simple', …)` over both
+  // locales (data-model §5). `Unsupported` marks it as not managed by Prisma;
+  // it is created and indexed by prisma/migrations/20261019140500_us9_search_projection.
+  search_document Unsupported("tsvector")?
 
   logo      Media? @relation("BrandLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
   cover     Media? @relation("BrandCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
@@ -303,6 +325,14 @@ model Brand {
   @@unique([slugAr])
   @@index([status, isActive, sortOrder])
   @@index([featured])
+  // US9 (T097): pg_trgm GIN for substring/prefix matching on slug + name.
+  // `map:` pins the physical name to the applied migration so `migrate dev`
+  // does not report a rename.
+  @@index([slugEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Brand_slugEn_trgm_idx")
+  @@index([slugAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Brand_slugAr_trgm_idx")
+  @@index([nameEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Brand_nameEn_trgm_idx")
+  @@index([nameAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Brand_nameAr_trgm_idx")
+  @@index([search_document(ops: raw("tsvector_ops"))], type: Gin, map: "Brand_search_document_idx")
 }
 
 model Product {
@@ -330,8 +360,12 @@ model Product {
   version           Int           @default(1)
   createdById       String        @db.Uuid
   updatedById       String?       @db.Uuid
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // US9 (T097): STORED generated column — `to_tsvector('simple', …)` over both
+  // locales (data-model §5). Created and indexed by the us9_search_projection migration.
+  search_document Unsupported("tsvector")?
 
   brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
   supplier  Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
@@ -350,6 +384,14 @@ model Product {
   @@index([brandId])
   @@index([supplierId])
   @@index([countryOfOriginEn])
+  // US9 (T097): pg_trgm GIN for substring/prefix matching on slug + name.
+  // `map:` pins the physical name to the applied migration so `migrate dev`
+  // does not report a rename.
+  @@index([slugEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_slugEn_trgm_idx")
+  @@index([slugAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_slugAr_trgm_idx")
+  @@index([nameEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_nameEn_trgm_idx")
+  @@index([nameAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_nameAr_trgm_idx")
+  @@index([search_document(ops: raw("tsvector_ops"))], type: Gin, map: "Product_search_document_idx")
 }
 
 model ProductImage {
@@ -391,8 +433,12 @@ model Supplier {
   version            Int           @default(1)
   createdById        String        @db.Uuid
   updatedById        String?       @db.Uuid
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // US9 (T097): STORED generated column — `to_tsvector('simple', …)` over both
+  // locales (data-model §5). Created and indexed by the us9_search_projection migration.
+  search_document Unsupported("tsvector")?
 
   logo      Media? @relation("SupplierLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
   cover     Media? @relation("SupplierCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
@@ -408,6 +454,14 @@ model Supplier {
   @@unique([slugAr])
   @@index([status, isActive, sortOrder])
   @@index([disclosureApproved])
+  // US9 (T097): pg_trgm GIN for substring/prefix matching on slug + name.
+  // `map:` pins the physical name to the applied migration so `migrate dev`
+  // does not report a rename.
+  @@index([slugEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Supplier_slugEn_trgm_idx")
+  @@index([slugAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Supplier_slugAr_trgm_idx")
+  @@index([nameEn(ops: raw("gin_trgm_ops"))], type: Gin, map: "Supplier_nameEn_trgm_idx")
+  @@index([nameAr(ops: raw("gin_trgm_ops"))], type: Gin, map: "Supplier_nameAr_trgm_idx")
+  @@index([search_document(ops: raw("tsvector_ops"))], type: Gin, map: "Supplier_search_document_idx")
 }
 
 model Client {

@@ -299,16 +299,16 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 9 (write FIRST, verify they FAIL)
 
-- [ ] T094 [P] [US9] Unit test `tests/unit/search.test.ts`: query builder — `tsvector('simple')` + `pg_trgm`, type filter, pagination, locale-aware title/slug selection, min-length 2 guard (begin as failing, then pass against the built service)
-- [ ] T095 [P] [US9] Integration test `tests/integration/search-api.test.ts`: `GET /api/search` returns multi-type labeled results, published-only (confidential clients excluded — edge case "Confidential data"), Arabic and English queries each find the active language record, zero-match → localized empty-state payload, rate limit 429 after 30/min
-- [ ] T096 [P] [US9] E2E test `tests/e2e/us9-search.spec.ts`: SC-006 — perceived sub-second results, visible entity-type labels, localized empty state with next steps, result opens detail page in the active language
+- [X] T094 [P] [US9] Unit test `tests/unit/search.test.ts`: query builder — `tsvector('simple')` + `pg_trgm`, type filter, pagination, locale-aware title/slug selection, min-length 2 guard (begin as failing, then pass against the built service)
+- [X] T095 [P] [US9] Integration test `tests/integration/search-api.test.ts`: `GET /api/search` returns multi-type labeled results, published-only (confidential clients excluded — edge case "Confidential data"), Arabic and English queries each find the active language record, zero-match → localized empty-state payload, rate limit 429 after 30/min
+- [X] T096 [P] [US9] E2E test `tests/e2e/us9-search.spec.ts`: SC-006 — perceived sub-second results, visible entity-type labels, localized empty state with next steps, result opens detail page in the active language
 
 ### Implementation for User Story 9
 
-- [ ] T097 [US9] Migration task: add `search_document` generated columns + GIN index `to_tsvector('simple', …)` on Brand/Product/Supplier/Category, and `pg_trgm` GIN indexes on slug/name fields per `data-model.md` §5 (publication-consistent filtering applied at query layer)
-- [ ] T098 [US9] Implement `src/server/services/search.ts`: one round-trip query across product/brand/supplier/category with entity-type labels, localized title/slug/summary for active locale, paginated, published-only predicate
-- [ ] T099 [US9] Route handler `src/app/api/search/route.ts` per `public-api.md`: `q` min 2 chars, optional `type`, rate limit 30/min, error envelope, localized messages
-- [ ] T100 [US9] Search UI `src/components/site/search-overlay.tsx` integrated in Navbar: debounced input, results with type-label chips, localized empty state, keyboard accessible (FR-040), preserved among the responsive RTL layout
+- [X] T097 [US9] Migration task: add `search_document` generated columns + GIN index `to_tsvector('simple', …)` on Brand/Product/Supplier/Category, and `pg_trgm` GIN indexes on slug/name fields per `data-model.md` §5 (publication-consistent filtering applied at query layer)
+- [X] T098 [US9] Implement `src/server/services/search.ts`: one round-trip query across product/brand/supplier/category with entity-type labels, localized title/slug/summary for active locale, paginated, published-only predicate
+- [X] T099 [US9] Route handler `src/app/api/search/route.ts` per `public-api.md`: `q` min 2 chars, optional `type`, rate limit 30/min, error envelope, localized messages
+- [X] T100 [US9] Search UI `src/components/site/search-overlay.tsx` integrated in Navbar: debounced input, results with type-label chips, localized empty state, keyboard accessible (FR-040), preserved among the responsive RTL layout
 
 **Checkpoint**: US9 — search finds and labels everything, empty state is friendly, both languages work.
 

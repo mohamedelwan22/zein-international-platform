@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { Logo } from "./logo";
 import { LanguageSwitch } from "./language-switch";
+import { SearchOverlay } from "./search-overlay";
 
 /**
  * Public site navigation (T033, FR-040): minimal premium header on the deep
@@ -129,6 +130,7 @@ export function Navbar() {
         </Suspense>
 
         <div className="flex items-center gap-2">
+          <SearchOverlay />
           <Suspense fallback={null}>
             <LanguageSwitch />
           </Suspense>
