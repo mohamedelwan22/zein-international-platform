@@ -45,6 +45,8 @@ export interface PublicSupplierSummary {
 }
 
 export interface PublicSupplierDetail extends PublicSupplierSummary {
+  /** Canonical (current) slug after any `SlugRedirect` resolution (US10.3). */
+  canonicalSlug: string;
   description: string | null;
   history: string | null;
   website: string | null;
@@ -305,6 +307,7 @@ export async function publicSupplierDetail(
 
   return {
     ...base,
+    canonicalSlug: resolved,
     description: description?.text ?? null,
     history: history?.text ?? null,
     website: row.website,

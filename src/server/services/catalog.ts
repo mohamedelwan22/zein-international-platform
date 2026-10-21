@@ -65,6 +65,8 @@ export interface ProductImageRef {
 }
 
 export interface ProductDetail extends PublishedProductSummary {
+  /** Canonical (current) slug after any `SlugRedirect` resolution (US10.3). */
+  canonicalSlug: string;
   description: string | null;
   specifications: Record<string, unknown> | null;
   sku: string | null;
@@ -74,6 +76,8 @@ export interface ProductDetail extends PublishedProductSummary {
 }
 
 export interface BrandDetail extends PublishedBrandSummary {
+  /** Canonical (current) slug after any `SlugRedirect` resolution (US10.3). */
+  canonicalSlug: string;
   history: string | null;
   distribution: string | null;
   website: string | null;
@@ -384,7 +388,7 @@ function mapBrandSummary(
 function mapProductDetail(
   locale: AppLocale,
   row: ProductDetailRow,
-): ProductDetail | null {
+): Omit<ProductDetail, "canonicalSlug"> | null {
   const base = mapProductSummary(locale, row);
   if (!base) return null;
 
@@ -424,7 +428,7 @@ function mapProductDetail(
 function mapBrandDetail(
   locale: AppLocale,
   row: BrandDetailRow,
-): BrandDetail | null {
+): Omit<BrandDetail, "canonicalSlug"> | null {
   const base = mapBrandSummary(locale, row);
   if (!base) return null;
 
@@ -618,7 +622,9 @@ export async function productDetail(
     select: productDetailSelect,
   });
 
-  return row ? mapProductDetail(locale, row) : null;
+  if (!row) return null;
+  const detail = mapProductDetail(locale, row);
+  return detail ? { ...detail, canonicalSlug: resolved } : null;
 }
 
 /**
@@ -645,7 +651,9 @@ export async function brandDetail(
     select: brandDetailSelect,
   });
 
-  return row ? mapBrandDetail(locale, row) : null;
+  if (!row) return null;
+  const detail = mapBrandDetail(locale, row);
+  return detail ? { ...detail, canonicalSlug: resolved } : null;
 }
 
 /** Map a slug row to the requested locale's canonical slug pair. */

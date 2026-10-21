@@ -28,6 +28,27 @@ export function truncateMetaDescription(text: string): string {
   return `${cut.slice(0, lastSpace > 100 ? lastSpace : META_DESCRIPTION_MAX - 1).trimEnd()}…`;
 }
 
+/**
+ * Approved staff overrides stored in `SeoMeta` (US10, FR-043). Every field is
+ * optional: a missing value falls back to the localized default derived from
+ * the record/CMS content (US10.2), so SEO never requires re-entering content.
+ */
+export interface SeoOverride {
+  title?: string | null;
+  description?: string | null;
+  /** Absolute URL or a site-relative path ("/en/about"). */
+  canonicalUrl?: string | null;
+  /** Public media URL (or path) for the Open Graph image. */
+  ogImageUrl?: string | null;
+  noindex?: boolean;
+}
+
+function resolveCanonical(value: string, siteUrl: string): string {
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `${siteUrl}/${trimmed.replace(/^\/+/, "")}`;
+}
+
 export interface PublicMetadataInput {
   locale: AppLocale;
   /** Route path without the locale prefix, always starting with "/" (e.g. "/about"). */
@@ -36,6 +57,8 @@ export interface PublicMetadataInput {
   title: string;
   /** Localized description derived from approved content. */
   description: string;
+  /** Approved `SeoMeta` overrides for this locale (US10). */
+  seo?: SeoOverride | null;
   /** Omit on localized utility pages that should not be indexed twice. */
   noindex?: boolean;
   /**
@@ -51,6 +74,7 @@ export function buildPublicMetadata({
   path,
   title,
   description,
+  seo,
   noindex = false,
   languagePaths,
 }: PublicMetadataInput): Metadata {
@@ -58,15 +82,32 @@ export function buildPublicMetadata({
   const arPath = languagePaths?.ar ?? path;
   const siteUrl = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   const company = COMPANY[locale];
-  const canonical = `${siteUrl}/${locale}${path === "/" ? "" : path}`;
+  const canonical = seo?.canonicalUrl
+    ? resolveCanonical(seo.canonicalUrl, siteUrl)
+    : `${siteUrl}/${locale}${path === "/" ? "" : path}`;
+
+  // Staff overrides are exact: they bypass the localized title template and
+  // the 160-character truncation is only a defensive cap (validation already
+  // enforces it). Missing overrides fall back to the localized defaults.
+  const overrideTitle = seo?.title?.trim() ? seo.title.trim() : null;
+  const finalDescription = seo?.description?.trim() ? seo.description.trim() : description;
   // The root layout's title template appends "| Company" per locale; the
   // home page composes its full title directly.
-  const fullTitle = path === "/" ? `${company} — ${title}` : `${title} | ${company}`;
+  const fullTitle =
+    overrideTitle ??
+    (path === "/" ? `${company} — ${title}` : `${title} | ${company}`);
+  const image = seo?.ogImageUrl
+    ? { url: seo.ogImageUrl }
+    : { url: "/hero.png", width: 2001, height: 786 };
 
   return {
     metadataBase: new URL(siteUrl),
-    title: path === "/" ? { absolute: fullTitle } : title,
-    description: truncateMetaDescription(description),
+    title: overrideTitle
+      ? { absolute: fullTitle }
+      : path === "/"
+        ? { absolute: fullTitle }
+        : title,
+    description: truncateMetaDescription(finalDescription),
     alternates: {
       canonical,
       languages: {
@@ -77,11 +118,11 @@ export function buildPublicMetadata({
     openGraph: {
       type: "website",
       title: fullTitle,
-      description: truncateMetaDescription(description),
+      description: truncateMetaDescription(finalDescription),
       url: canonical,
       locale: locale === "ar" ? "ar_SA" : "en_US",
-      images: [{ url: "/hero.png", width: 2001, height: 786 }],
+      images: [image],
     },
-    robots: noindex ? { index: false, follow: false } : undefined,
+    robots: noindex || seo?.noindex ? { index: false, follow: false } : undefined,
   };
 }

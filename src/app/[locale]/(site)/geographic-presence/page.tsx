@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadContactInfo, loadHomeExperience } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { loadVerifiedLocations } from "@/server/cache/geographic-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { env } from "@/lib/env";
@@ -35,10 +36,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [experience, tHome, tEmpty] = await Promise.all([
+  const [experience, tHome, tEmpty, seo] = await Promise.all([
     loadHomeExperience(locale),
     getTranslations({ locale, namespace: "home" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("geographic-presence", locale),
   ]);
 
   return buildPublicMetadata({
@@ -46,6 +48,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/geographic-presence",
     title: tHome("geographicPresenceTitle"),
     description: experience.geographicPresence?.body ?? tEmpty("locationsBody"),
+    seo,
   });
 }
 

@@ -1,8 +1,35 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Local development prerequisites
+
+The app talks to PostgreSQL through the Docker Compose dev stack. **The database
+must be running before `pnpm dev`** — every page that reads content (home,
+directories, catalog) queries it on the server.
+
+```bash
+pnpm db:up      # docker compose up -d  (postgres on :5434, minio on :9100)
+pnpm db:down    # docker compose down
+```
+
+`DATABASE_URL` in `.env` points at `postgresql://zein:zein@localhost:5434/zein`
+(see `.env.example`).
+
+> **Diagnosing a Prisma error that mentions `findUnique`/`findMany`:**
+> Prisma 7 with the `pg` driver adapter reports an unreachable database as
+> `PrismaClientKnownRequestError` with `code: "ECONNREFUSED"` — *not* the more
+> familiar `PrismaClientInitializationError` / `P1001`. The invocation shown in
+> the message is the first query that happened to run, not a schema problem.
+> Check that the container is up (`docker compose ps`) before looking at the
+> schema or the generated client.
+
+Apply the schema to the dev database with `pnpm db:migrate` (creates missing
+tables; additive, non-destructive). `pnpm db:seed` loads the approved seed
+content.
+
 ## Getting Started
 
-First, run the development server:
+First, start the dev services (see prerequisites above), then run the
+development server:
 
 ```bash
 npm run dev

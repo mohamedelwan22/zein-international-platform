@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadHomeExperience } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Hero, type HeroCta } from "@/components/site/hero";
 import { Section, SectionHeading } from "@/components/site/section-heading";
@@ -29,10 +30,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [experience, tFooter, tEmpty] = await Promise.all([
+  const [experience, tFooter, tEmpty, seo] = await Promise.all([
     loadHomeExperience(locale),
     getTranslations({ locale, namespace: "footer" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("home", locale),
   ]);
 
   return buildPublicMetadata({
@@ -41,6 +43,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     title: experience.hero?.headline ?? tFooter("companyName"),
     description:
       experience.hero?.supporting ?? experience.aboutPreview?.body ?? tEmpty("cmsBody"),
+    seo,
   });
 }
 

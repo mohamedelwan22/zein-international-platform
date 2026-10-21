@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadAboutExperience } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
 import { EmptyState, ValueCard } from "@/components/site/cards";
@@ -23,10 +24,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [experience, tAbout, tEmpty] = await Promise.all([
+  const [experience, tAbout, tEmpty, seo] = await Promise.all([
     loadAboutExperience(locale),
     getTranslations({ locale, namespace: "about" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("values", locale),
   ]);
 
   return buildPublicMetadata({
@@ -34,6 +36,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/values",
     title: tAbout("valuesTitle"),
     description: experience.values[0]?.description ?? tEmpty("cmsBody"),
+    seo,
   });
 }
 

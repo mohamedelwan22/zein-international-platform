@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, routing, type AppLocale } from "@/i18n/routing";
 import { loadBrandDetail } from "@/server/cache/catalog-content";
+import { loadEntitySeoOverride } from "@/server/cache/seo-content";
 import {
   listPublishedBrands,
   resolveLocalizedSlug,
@@ -79,8 +80,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     getTranslations({ locale, namespace: "empty" }),
   ]);
 
-  // Slugs are localized, so each locale's detail URL differs (BUG-002).
-  const pair = brand ? await resolveLocalizedSlug("brand", locale, slug) : null;
+  // A redirected (renamed) slug still renders the canonical entity; the
+  // metadata canonical must point at the current slug (US10.3).
+  const canonicalSlug = brand?.canonicalSlug ?? slug;
+  const pair = brand ? await resolveLocalizedSlug("brand", locale, canonicalSlug) : null;
+  const seo = brand ? await loadEntitySeoOverride("brand", brand.id, locale) : null;
   const languagePaths = pair
     ? {
         en: `/brands/${locale === "en" ? pair.slug : pair.alternateSlug}`,
@@ -90,9 +94,10 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
 
   return buildPublicMetadata({
     locale,
-    path: `/brands/${slug}`,
+    path: `/brands/${canonicalSlug}`,
     title: brand?.name ?? tBrands("pageTitle"),
     description: brand?.summary ?? brand?.history ?? tEmpty("brandsBody"),
+    seo,
     languagePaths,
   });
 }
@@ -123,6 +128,13 @@ export default async function BrandDetailPage({ params }: RouteProps) {
       permanentRedirect(`/${locale}/brands/${encodeURIComponent(pair.slug)}`);
     }
     notFound();
+  }
+
+  // A renamed brand slug resolves to the entity for users and crawlers, but
+  // the canonical URL is the current slug: answer with a permanent redirect
+  // (US10.3, FR-043).
+  if (brand.canonicalSlug !== slug) {
+    permanentRedirect(`/${locale}/brands/${encodeURIComponent(brand.canonicalSlug)}`);
   }
 
   const pending = tCommon("contentPending");

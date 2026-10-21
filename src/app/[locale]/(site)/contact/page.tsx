@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadContactInfo, loadSocialLinks, loadWorkingHours } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { getSettings } from "@/server/services/settings";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
@@ -55,9 +56,10 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [contact, tContact] = await Promise.all([
+  const [contact, tContact, seo] = await Promise.all([
     loadContactInfo(locale),
     getTranslations({ locale, namespace: "contact" }),
+    loadPageSeoOverride("contact", locale),
   ]);
 
   const description = contact
@@ -69,6 +71,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/contact",
     title: tContact("title"),
     description,
+    seo,
   });
 }
 

@@ -6,6 +6,7 @@ import {
   loadProductDetail,
   loadProducts,
 } from "@/server/cache/catalog-content";
+import { loadEntitySeoOverride } from "@/server/cache/seo-content";
 import {
   listPublishedProducts,
   resolveLocalizedSlug,
@@ -86,9 +87,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
 
   // Slugs are localized, so each locale's detail URL differs (BUG-002). Emit
   // correct hreflang alternates rather than the same slug in both locales.
+  const canonicalSlug = product?.canonicalSlug ?? slug;
   const pair = product
-    ? await resolveLocalizedSlug("product", locale, slug)
+    ? await resolveLocalizedSlug("product", locale, canonicalSlug)
     : null;
+  const seo = product ? await loadEntitySeoOverride("product", product.id, locale) : null;
   const languagePaths = pair
     ? {
         en: `/products/${locale === "en" ? pair.slug : pair.alternateSlug}`,
@@ -98,9 +101,10 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
 
   return buildPublicMetadata({
     locale,
-    path: `/products/${slug}`,
+    path: `/products/${canonicalSlug}`,
     title: product?.name ?? tCatalog("pageTitle"),
     description: product?.summary ?? tEmpty("productsBody"),
+    seo,
     languagePaths,
   });
 }
@@ -148,6 +152,12 @@ export default async function ProductDetailPage({ params }: RouteProps) {
       permanentRedirect(`/${locale}/products/${encodeURIComponent(pair.slug)}`);
     }
     notFound();
+  }
+
+  // A renamed product slug resolves to the entity, but the canonical URL is
+  // the current slug (US10.3) — answer with a permanent redirect.
+  if (product.canonicalSlug !== slug) {
+    permanentRedirect(`/${locale}/products/${encodeURIComponent(product.canonicalSlug)}`);
   }
 
   const pending = tCommon("contentPending");

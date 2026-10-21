@@ -8,6 +8,7 @@ import {
   loadCategories,
   loadProducts,
 } from "@/server/cache/catalog-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import type {
   CatalogFilters as CatalogFilterInput,
 } from "@/server/services/catalog";
@@ -83,10 +84,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [products, tCatalog, tEmpty] = await Promise.all([
+  const [products, tCatalog, tEmpty, seo] = await Promise.all([
     loadProducts(locale),
     getTranslations({ locale, namespace: "catalog" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("products", locale),
   ]);
 
   return buildPublicMetadata({
@@ -94,6 +96,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/products",
     title: tCatalog("pageTitle"),
     description: products[0]?.summary ?? tEmpty("productsBody"),
+    seo,
   });
 }
 

@@ -17,6 +17,8 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
     "verify:assets": "tsx scripts/verify-approved-assets.ts"
   },
   "dependencies": {

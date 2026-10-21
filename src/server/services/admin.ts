@@ -21,6 +21,8 @@ import {
   type AdminListQuery,
 } from "@/server/validation/admin-entities";
 import type { z } from "zod";
+import type { EntityType } from "@/generated/prisma/client";
+import { recordSlugChange } from "./redirects";
 
 /**
  * Generic admin data-service layer (US7, T075, admin-api.md §3, data-model §3).
@@ -312,7 +314,7 @@ function parseOrThrow<T extends z.ZodTypeAny>(schema: T, raw: unknown, message: 
 
 /** Revalidate the public cache tags a mutation may have changed (best-effort). */
 function invalidateFor(config: EntityConfig, rows: (Record<string, unknown> | null)[]): void {
-  const tags = new Set<string>();
+  const tags = new Set<string>(["seo:sitemap"]);
   for (const row of rows) {
     if (!row) continue;
     for (const tag of config.publicTags(row)) tags.add(tag);
@@ -572,6 +574,20 @@ export async function updateAdminEntity(
   if (categoryIds !== undefined) changed.push("categories");
   if (imageIds !== undefined) changed.push("images");
 
+  // Slug changes keep old public URLs alive via SlugRedirect (US10.3, T105).
+  const slugChanges = config.slug
+    ? (["en", "ar"] as const).flatMap((locale) => {
+        const column = config.slug![locale];
+        const oldSlug = current[column];
+        const newSlug = changes[column];
+        return typeof oldSlug === "string" &&
+          typeof newSlug === "string" &&
+          oldSlug !== newSlug
+          ? [{ locale, oldSlug, newSlug }]
+          : [];
+      })
+    : [];
+
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const txDb = tx as unknown as Record<string, AnyDelegate>;
@@ -583,6 +599,12 @@ export async function updateAdminEntity(
         throw versionConflict(version);
       }
       await writeJunctions(txDb, config, id, categoryIds, imageIds);
+      for (const change of slugChanges) {
+        await recordSlugChange(tx, {
+          entityType: config.entityType as EntityType,
+          ...change,
+        });
+      }
       await tx.activityLog.create({
         data: {
           actorId: actor.id,

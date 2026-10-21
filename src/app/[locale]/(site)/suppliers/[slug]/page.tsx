@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, routing, type AppLocale } from "@/i18n/routing";
 import { loadSupplierDetail } from "@/server/cache/directory-content";
+import { loadEntitySeoOverride } from "@/server/cache/seo-content";
 import { resolveLocalizedSlug } from "@/server/services/catalog";
 import { listPublicSuppliers } from "@/server/services/directory";
 import { buildPublicMetadata } from "@/lib/seo";
@@ -17,10 +18,10 @@ import { Link } from "@/i18n/navigation";
  * Supplier detail (T085, FR-011, US8): logo, cover, name, origin country,
  * categories, about, history, the supplier's published products, approved
  * contact channels, and an inquiry call to action — all bilingual and
- * admin-managed. A supplier that is undisclosed, unpublished, or unknown (or a
- * redirected slug) yields the localized 404; the SlugRedirect is resolved
- * inside the directory service (data-model §2.11). Cross-locale slugs resolve
- * to a redirect (BUG-002 behavior), mirroring the brand detail page.
+ * admin-managed. A supplier that is undisclosed, unpublished, or unknown
+ * yields the localized 404. A renamed slug is resolved to the canonical entity
+ * via SlugRedirect (data-model §2.11) and redirected permanently; cross-locale
+ * slugs redirect too (BUG-002 behavior), mirroring the brand detail page.
  */
 
 export const instant = false;
@@ -65,8 +66,14 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     getTranslations({ locale, namespace: "empty" }),
   ]);
 
+  const canonicalSlug = supplier?.canonicalSlug ?? slug;
   // Slugs are localized, so each locale's detail URL differs (BUG-002).
-  const pair = supplier ? await resolveLocalizedSlug("supplier", locale, slug) : null;
+  const pair = supplier
+    ? await resolveLocalizedSlug("supplier", locale, canonicalSlug)
+    : null;
+  const seo = supplier
+    ? await loadEntitySeoOverride("supplier", supplier.id, locale)
+    : null;
   const languagePaths = pair
     ? {
         en: `/suppliers/${locale === "en" ? pair.slug : pair.alternateSlug}`,
@@ -76,10 +83,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
 
   return buildPublicMetadata({
     locale,
-    path: `/suppliers/${slug}`,
+    path: `/suppliers/${canonicalSlug}`,
     title: supplier?.name ?? tSuppliers("pageTitle"),
     description:
       supplier?.summary ?? supplier?.description ?? tEmpty("suppliersBody"),
+    seo,
     languagePaths,
   });
 }
@@ -110,6 +118,12 @@ export default async function SupplierDetailPage({ params }: RouteProps) {
       permanentRedirect(`/${locale}/suppliers/${encodeURIComponent(pair.slug)}`);
     }
     notFound();
+  }
+
+  // A renamed supplier slug resolves to the disclosed entity, but the
+  // canonical URL is the current slug (US10.3, FR-043).
+  if (supplier.canonicalSlug !== slug) {
+    permanentRedirect(`/${locale}/suppliers/${encodeURIComponent(supplier.canonicalSlug)}`);
   }
 
   const pending = tCommon("contentPending");

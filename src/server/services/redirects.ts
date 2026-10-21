@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db/prisma";
 import type { AppLocale } from "@/i18n/routing";
-import type { EntityType } from "@/generated/prisma/client";
+import type { EntityType, Prisma } from "@/generated/prisma/client";
 
 /**
  * Slug redirect resolution (T041, data-model §2.11 / US10.3 behavior).
@@ -61,4 +61,41 @@ export async function resolveSlugRedirect({
   }
 
   return current;
+}
+
+export interface SlugChange {
+  entityType: EntityType;
+  locale: AppLocale;
+  oldSlug: string;
+  newSlug: string;
+}
+
+/**
+ * Persist a slug change (US10.3, T105, data-model §2.11) inside the caller's
+ * transaction so the entity update and redirect are atomic.
+ *
+ * Chains are flattened rather than appended: `A -> B` followed by `B -> C`
+ * rewrites every row pointing at `B` to point at `C`, so resolution stays
+ * O(1)-ish and old URLs never traverse a growing chain.
+ */
+export async function recordSlugChange(
+  tx: Pick<Prisma.TransactionClient, "slugRedirect">,
+  { entityType, locale, oldSlug, newSlug }: SlugChange,
+): Promise<void> {
+  if (oldSlug === newSlug) return;
+
+  // A self-redirect is meaningless (B -> B); drop any stale row first.
+  await tx.slugRedirect.deleteMany({ where: { entityType, locale, oldSlug: newSlug } });
+
+  // Flatten: A -> B becomes A -> C when B is renamed to C.
+  await tx.slugRedirect.updateMany({
+    where: { entityType, locale, newSlug: oldSlug },
+    data: { newSlug },
+  });
+
+  await tx.slugRedirect.upsert({
+    where: { entityType_oldSlug_locale: { entityType, locale, oldSlug } },
+    create: { entityType, locale, oldSlug, newSlug },
+    update: { newSlug },
+  });
 }

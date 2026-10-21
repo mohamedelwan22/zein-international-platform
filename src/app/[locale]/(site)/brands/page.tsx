@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadBrands } from "@/server/cache/catalog-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
 import { BrandCard, EmptyState } from "@/components/site/cards";
@@ -28,10 +29,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [brands, tBrands, tEmpty] = await Promise.all([
+  const [brands, tBrands, tEmpty, seo] = await Promise.all([
     loadBrands(locale),
     getTranslations({ locale, namespace: "brands" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("brands", locale),
   ]);
 
   return buildPublicMetadata({
@@ -39,6 +41,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/brands",
     title: tBrands("pageTitle"),
     description: brands[0]?.summary ?? tEmpty("brandsBody"),
+    seo,
   });
 }
 

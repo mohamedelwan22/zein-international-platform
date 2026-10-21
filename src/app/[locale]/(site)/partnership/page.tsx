@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale } from "@/i18n/routing";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { getSettings } from "@/server/services/settings";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
@@ -28,12 +29,16 @@ export async function generateMetadata({
     notFound();
   }
   setRequestLocale(locale);
-  const t = await getTranslations({ locale, namespace: "partnership" });
+  const [t, seo] = await Promise.all([
+    getTranslations({ locale, namespace: "partnership" }),
+    loadPageSeoOverride("partnership", locale),
+  ]);
   return buildPublicMetadata({
     locale,
     path: "/partnership",
     title: t("formTitle"),
     description: t("successBody"),
+    seo,
   });
 }
 

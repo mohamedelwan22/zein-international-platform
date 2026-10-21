@@ -1,15 +1,16 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadAboutExperience } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
 import { EmptyState } from "@/components/site/cards";
 import { CtaSection } from "@/components/site/cta-section";
 
-/** Sustainability route (T035, FR-005): approved copy only — no invented
- * certifications, measurements, or environmental claims (DESIGN_SYSTEM §23). */
+/** Sustainability route (T035, FR-005): approved copy only â€” no invented
+ * certifications, measurements, or environmental claims (DESIGN_SYSTEM Â§23). */
 
 interface RouteProps {
   params: Promise<{ locale: string }>;
@@ -24,10 +25,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [experience, tAbout, tEmpty] = await Promise.all([
+  const [experience, tAbout, tEmpty, seo] = await Promise.all([
     loadAboutExperience(locale),
     getTranslations({ locale, namespace: "about" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("sustainability", locale),
   ]);
 
   return buildPublicMetadata({
@@ -35,6 +37,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/sustainability",
     title: tAbout("sustainabilityTitle"),
     description: experience.sustainability?.paragraphs[0] ?? tEmpty("cmsBody"),
+    seo,
   });
 }
 

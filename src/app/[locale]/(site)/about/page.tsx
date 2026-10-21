@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadAboutExperience } from "@/server/cache/public-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section, SectionHeading } from "@/components/site/section-heading";
 import { EmptyState, ValueCard } from "@/components/site/cards";
@@ -28,10 +29,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [experience, tNav, tEmpty] = await Promise.all([
+  const [experience, tNav, tEmpty, seo] = await Promise.all([
     loadAboutExperience(locale),
     getTranslations({ locale, namespace: "nav" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("about", locale),
   ]);
 
   return buildPublicMetadata({
@@ -39,6 +41,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/about",
     title: tNav("about"),
     description: experience.story[0] ?? tEmpty("cmsBody"),
+    seo,
   });
 }
 

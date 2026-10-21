@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { isAppLocale, type AppLocale } from "@/i18n/routing";
 import { loadClients } from "@/server/cache/directory-content";
+import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Section } from "@/components/site/section-heading";
 import { ClientCard, EmptyState } from "@/components/site/cards";
@@ -29,10 +30,11 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
   const locale = resolveLocale(raw);
   setRequestLocale(locale);
 
-  const [clients, tClients, tEmpty] = await Promise.all([
+  const [clients, tClients, tEmpty, seo] = await Promise.all([
     loadClients(locale),
     getTranslations({ locale, namespace: "clients" }),
     getTranslations({ locale, namespace: "empty" }),
+    loadPageSeoOverride("clients", locale),
   ]);
 
   return buildPublicMetadata({
@@ -40,6 +42,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     path: "/clients",
     title: tClients("pageTitle"),
     description: clients[0]?.description ?? tEmpty("clientsBody"),
+    seo,
   });
 }
 

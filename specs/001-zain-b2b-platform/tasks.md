@@ -322,14 +322,14 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 10 (write FIRST, verify they FAIL)
 
-- [ ] T101 [P] [US10] Integration test `tests/integration/seo.test.ts`: per-locale metadata pair (title/description/canonical) presented to crawlers for each language; localized-default fallback "derived from its approved content rather than an empty or broken result" (US10.2); slug change → `SlugRedirect` 301 → canonical content, chain-guard (no redirect chains, data-model §2.11); duplicate slug publication refused `409 SLUG_CONFLICT` (FR-036)
-- [ ] T102 [P] [US10] E2E test `tests/e2e/us10-seo.spec.ts`: SC-011 across representative pages + entities in both languages; `hreflang`, canonical, and OG tags present per locale
+- [x] T101 [P] [US10] Integration test `tests/integration/seo.test.ts`: per-locale metadata pair (title/description/canonical) presented to crawlers for each language; localized-default fallback "derived from its approved content rather than an empty or broken result" (US10.2); slug change → `SlugRedirect` 301 → canonical content, chain-guard (no redirect chains, data-model §2.11); duplicate slug publication refused `409 SLUG_CONFLICT` (FR-036)
+- [x] T102 [P] [US10] E2E test `tests/e2e/us10-seo.spec.ts`: SC-011 across representative pages + entities in both languages; `hreflang`, canonical, and OG tags present per locale
 
 ### Implementation for User Story 10
 
-- [ ] T103 [US10] Finalize public SEO output: per-route `generateMetadata` across all public routes composing `SeoMeta` + localized defaults (activates the US1 base), `src/app/[locale]/sitemap.ts` (published pages + entities, both locales), `robots.txt` — FR-034/FR-043
-- [ ] T104 [US10] Admin SEO module `src/app/[locale]/(admin)/admin/seo/` + endpoints per `admin-api.md` §7: meta title/description/slug/OG image/canonical per (target, locale), length caps "60/160 guidance" (`data-model.md` §2.10), noindex, redirects list/create/delete — permission seo:*
-- [ ] T105 [US10] Slug management: entity services persist `SlugRedirect(oldSlug→newSlug)` on change (301, US10.3), duplicate prevention via partial unique indexes surfaced as `409 SLUG_CONFLICT` (FR-036)
+- [x] T103 [US10] Finalize public SEO output: per-route `generateMetadata` across all public routes composing `SeoMeta` + localized defaults (activates the US1 base), `src/app/[locale]/sitemap.ts` (published pages + entities, both locales), `robots.txt` — FR-034/FR-043. Note: sitemap/robots live at `src/app/sitemap.ts` and `src/app/robots.ts` (Next.js metadata routes are locale-agnostic and emit both locales)
+- [x] T104 [US10] Admin SEO module `src/app/[locale]/(admin)/admin/seo/` + endpoints per `admin-api.md` §7: meta title/description/slug/OG image/canonical per (target, locale), length caps "60/160 guidance" (`data-model.md` §2.10), noindex, redirects list/create/delete — permission seo:*
+- [x] T105 [US10] Slug management: entity services persist `SlugRedirect(oldSlug→newSlug)` on change (301, US10.3), duplicate prevention via partial unique indexes surfaced as `409 SLUG_CONFLICT` (FR-036)
 
 **Checkpoint**: US10 — every public URL carries correct per-locale metadata and slug redirects behave.
 
