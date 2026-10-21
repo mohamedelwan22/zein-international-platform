@@ -70,6 +70,9 @@ beforeAll(async () => {
 beforeEach(async () => {
   authMock.mockReset();
   await prisma.authAttempt.deleteMany({});
+  // The sign-in audit (US11, SC-012) writes append-only activity rows that
+  // reference the staff member — they go before the users they point at.
+  await prisma.activityLog.deleteMany({});
   await prisma.user.deleteMany({ where: { email: { endsWith: TEST_DOMAIN } } });
 });
 

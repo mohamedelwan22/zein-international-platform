@@ -343,13 +343,13 @@ description: "Implementation task breakdown for the Zain International Trading B
 
 ### Tests for User Story 11 (write FIRST, verify they FAIL)
 
-- [ ] T106 [P] [US11] Integration test `tests/integration/activity-log.test.ts`: SC-012 — execute login, create, update, delete/archive, publish/unpublish, visibility change, permission change, user change, sensitive attachment access → ALL present with actor/action/target/timestamp; log is append-only (no update/delete paths exposed — data-model §2.15)
-- [ ] T107 [P] [US11] E2E test `tests/e2e/us11-dashboard.spec.ts`: dashboard overview shows counts/entry points + recent activity; a user without log permission is denied (US11 scenario 3)
+- [x] T106 [P] [US11] Integration test `tests/integration/activity-log.test.ts`: SC-012 — execute login, create, update, delete/archive, publish/unpublish, visibility change, permission change, user change, sensitive attachment access → ALL present with actor/action/target/timestamp; log is append-only (no update/delete paths exposed — data-model §2.15)
+- [x] T107 [P] [US11] E2E test `tests/e2e/us11-dashboard.spec.ts`: dashboard overview shows counts/entry points + recent activity; a user without log permission is denied (US11 scenario 3)
 
 ### Implementation for User Story 11
 
-- [ ] T108 [US11] Replace admin landing placeholder (T051) with `src/app/[locale]/(admin)/admin/page.tsx` + `GET /api/admin/dashboard/overview`: counts + entry points for brands/products/suppliers/clients/categories/locations/inquiries/partnerships/content/media + recent activity (FR-023), localized, responsive (FR-041)
-- [ ] T109 [US11] Activity log UI `src/app/[locale]/(admin)/admin/activity/` + `GET /api/admin/activity` (filters actor/action/entityType/date range, pagination) permission activity:read, read-only (no write/delete controls exist) per `admin-api.md` §10
+- [x] T108 [US11] Replace admin landing placeholder (T051) with `src/app/[locale]/(admin)/admin/page.tsx` + `GET /api/admin/dashboard/overview`: counts + entry points for brands/products/suppliers/clients/categories/locations/inquiries/partnerships/content/media + recent activity (FR-023), localized, responsive (FR-041)
+- [x] T109 [US11] Activity log UI `src/app/[locale]/(admin)/admin/activity/` + `GET /api/admin/activity` (filters actor/action/entityType/date range, pagination) permission activity:read, read-only (no write/delete controls exist) per `admin-api.md` §10
 
 **Checkpoint**: US11 — admins can supervise usage and verify every sensitive action is on the record.
 

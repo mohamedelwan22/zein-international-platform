@@ -2,6 +2,7 @@ import { verify } from "@node-rs/argon2";
 import { prisma } from "@/server/db/prisma";
 import { clientIpFrom, hashIp } from "@/server/http/ip";
 import { consumeLoginThrottle, resetLoginThrottle } from "@/server/http/rateLimit";
+import { recordLogin } from "@/server/services/activity";
 
 /**
  * Credentials verification (T016, US3.1/US3.4/FR-022).
@@ -54,6 +55,21 @@ async function recordAttempt(params: {
 }
 
 /**
+ * Record a refused sign-in on the append-only activity log (admin-api.md §11 —
+ * "login success/failure"). The attempt is attributed to the account it
+ * targeted; an address that belongs to no account has no actor to attribute it
+ * to, so the durable `AuthAttempt` row stays the record for those (the log's
+ * `actorId` is a required staff reference).
+ */
+async function recordFailedLogin(email: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (!user) {
+    return;
+  }
+  await recordLogin({ actorId: user.id, success: false });
+}
+
+/**
  * Verify credentials for one sign-in attempt.
  * Returns the identity-only claims on success, or `null` when the attempt is
  * refused (unknown/inactive account, wrong password, throttle, or lockout).
@@ -78,6 +94,7 @@ export async function authenticateWithCredentials(
   const throttle = consumeLoginThrottle(email, ip);
   if (!throttle.allowed) {
     await recordAttempt({ email, ipHash, success: false, lockedOut: true });
+    await recordFailedLogin(email);
     return null;
   }
 
@@ -85,11 +102,13 @@ export async function authenticateWithCredentials(
   if (!user || !user.active) {
     // Do not reveal whether the account exists (avoid user enumeration).
     await recordAttempt({ email, ipHash, success: false });
+    await recordFailedLogin(email);
     return null;
   }
 
   if (user.lockedUntil && user.lockedUntil > now) {
     await recordAttempt({ email, ipHash, success: false, lockedOut: true });
+    await recordFailedLogin(email);
     return null;
   }
 
@@ -105,6 +124,7 @@ export async function authenticateWithCredentials(
       },
     });
     await recordAttempt({ email, ipHash, success: false, lockedOut: lock });
+    await recordFailedLogin(email);
     return null;
   }
 
@@ -117,6 +137,7 @@ export async function authenticateWithCredentials(
     },
   });
   await recordAttempt({ email, ipHash, success: true });
+  await recordLogin({ actorId: user.id, success: true });
   resetLoginThrottle(email, ip);
 
   // Identity-only: id + revocation claim. Roles are never trusted from

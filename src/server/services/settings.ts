@@ -131,7 +131,7 @@ export async function updateSetting(params: {
   await prisma.activityLog.create({
     data: {
       actorId,
-      action: "update",
+      action: "settingsUpdate",
       entityType: "settings",
       entityId: row.key,
       summary: `Updated settings:${key}`,

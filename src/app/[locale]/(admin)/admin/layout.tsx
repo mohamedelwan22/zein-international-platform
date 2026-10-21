@@ -47,7 +47,7 @@ export default async function AdminLayout({
   const t = await getTranslations("common");
 
   return (
-    <div className="grid min-h-dvh grid-cols-1 bg-zain-cream-100 md:grid-cols-[17rem_1fr]">
+    <div className="grid min-h-dvh grid-cols-1 bg-zain-cream-100 md:grid-cols-[17rem_minmax(0,1fr)]">
       <a
         href="#main-content"
         className="skip-link rounded-sm bg-zain-cream-50 px-4 py-3 text-body font-semibold text-zain-green-950"

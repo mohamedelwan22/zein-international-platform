@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import type { DefaultSession } from "next-auth";
 import { authConfig } from "./auth.config";
+import { recordSignOutEvent } from "./audit-events";
 import { authenticateWithCredentials } from "./credentials";
 
 /**
@@ -13,6 +14,9 @@ import { authenticateWithCredentials } from "./credentials";
  *   claims are trusted from the token (roles load from the DB per request)
  * - Every sign-in attempt (success/failure/lockout) is recorded in
  *   `AuthAttempt` with a hashed IP (data-model.md §2.16, US3.4)
+ * - Sign-ins and sign-outs are also written to the append-only `ActivityLog`
+ *   (admin-api.md §11, SC-012): the provider path records the sign-in through
+ *   `authenticateWithCredentials`, the sign-out through the `signOut` event
  * - Account lockout: 5 consecutive failures lock the account for 15 minutes
  *   (data-model.md §2.1 failedLogins/lockedUntil; the in-process
  *   account+IP throttle lives in http/rateLimit.ts, US3.4)
@@ -55,6 +59,11 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  events: {
+    // Signing out is a sensitive administrative action — it is written to the
+    // append-only activity log (admin-api.md §11, SC-012).
+    signOut: (message) => recordSignOutEvent(message),
+  },
   callbacks: {
     jwt({ token, user }) {
       const claims = token as unknown as IdentityClaims;
