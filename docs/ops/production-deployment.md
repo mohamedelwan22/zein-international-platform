@@ -1,11 +1,11 @@
 # Production deployment
 
 Runbook for the production Compose stack (`docker/compose.prod.yml`): Next.js
-standalone app + Caddy (automatic TLS) + PostgreSQL 17 + S3-compatible MinIO.
+standalone app + Caddy (automatic TLS) + PostgreSQL 17 + external S3-compatible storage.
 
 > **Status:** this stack has **not** been deployed to a real server yet. The
 > steps below are the intended procedure; image builds are currently blocked in
-> this environment by registry connectivity, and MinIO/Caddy image tags could
+> this environment by registry connectivity, and Caddy image tags could
 > not be resolved from Docker Hub. Treat every step as unverified until a
 > staging deploy is actually performed.
 
@@ -18,7 +18,7 @@ standalone app + Caddy (automatic TLS) + PostgreSQL 17 + S3-compatible MinIO.
 - A migrated PostgreSQL database. For the in-stack database, `postgres` is only
   reachable on the Compose network; the **build** stage needs a database it can
   reach (see "Build-time database").
-- An S3-compatible bucket for media (MinIO in-stack or an external S3).
+- An S3-compatible bucket for media (external S3 only; no in-stack object storage).
 
 ## Files
 
@@ -43,7 +43,7 @@ Runtime (`/.env.production`):
 | `AUTH_SECRET` | ≥ 32 random characters, stable. Rotating it signs everyone out. |
 | `AUTH_TRUST_HOST` | `true` behind Caddy. |
 | `NEXT_PUBLIC_SITE_URL` | Public HTTPS origin. **Baked at build time** — set it before building. |
-| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION` | Media storage. In-stack MinIO endpoint is `http://minio:9000`. |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION` | Media storage. Use an external S3-compatible endpoint (path-style is supported by the app). |
 | `MAP_PROVIDER`, `MAP_TOKEN` | Open Item 7 (client decision). |
 | `LOG_LEVEL` | e.g. `info`. |
 | `CADDY_DOMAIN`, `CADDY_EMAIL` | Caddy site address and ACME email. |
@@ -89,7 +89,7 @@ export BUILD_ENV_FILE="$PWD/docker/.env.build"
 docker compose -f docker/compose.prod.yml --env-file .env.production config --quiet
 
 # 2. Data services first
-docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres minio
+docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres
 
 # 3. BACKUP FIRST, then migrate
 pnpm db:backup
@@ -101,11 +101,6 @@ docker compose -f docker/compose.prod.yml --env-file .env.production build app
 
 # 5. Start the app behind Caddy
 docker compose -f docker/compose.prod.yml --env-file .env.production up -d app caddy
-
-# 6. Provision the media bucket (versioning + optional lifecycle).
-#    Run inside the builder image so it can reach `minio:9000` over Compose.
-docker compose -f docker/compose.prod.yml --env-file .env.production \
-  --profile tools run --rm --entrypoint pnpm migrate storage:setup
 ```
 
 `pnpm storage:setup` is idempotent: it creates the bucket if missing, enables
@@ -161,8 +156,9 @@ the database host is not sufficient for disaster recovery.
 
 ## Known gaps before go-live
 
-- Image digests for `MINIO_IMAGE`/`CADDY_IMAGE` are not pinned or verified in
-  this environment. Pin by digest for reproducible deploys.
+- Image digests for `CADDY_IMAGE` (and any other third-party images) are not
+  pinned or verified in this environment. Pin by digest for reproducible
+  deploys.
 - Off-host backup and a staging deploy are still open.
 - Client Open Items (domain, map provider, email/notification provider,
   analytics/consent, content, backups destination, roles) remain unresolved —

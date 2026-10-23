@@ -2,7 +2,9 @@ name: zein-dev
 
 services:
   postgres:
-    image: public.ecr.aws/docker/library/postgres:17
+    # ECR Public throttles anonymous pulls; mirror.gcr.io serves the identical
+    # postgres:17 manifest (see docs/ops/dependency-audit.md).
+    image: mirror.gcr.io/library/postgres:17
     container_name: zein-postgres
     restart: unless-stopped
     environment:
@@ -19,25 +21,27 @@ services:
       timeout: 3s
       retries: 20
 
-  minio:
-    image: minio/minio:latest
-    container_name: zein-minio
+  s3mock:
+    # Development/test only. MinIO CE is EOL and `minio/minio` was removed from
+    # Docker Hub; production uses an external S3-compatible bucket.
+    image: mirror.gcr.io/adobe/s3mock:latest
+    container_name: zein-s3mock
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: zein-media
+      COM_ADOBE_TESTING_S3MOCK_STORE_REGION: us-east-1
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
     ports:
-      - "9100:9000"
-      - "9101:9001"
+      - "9100:9090"
     volumes:
-      - miniodata:/data
+      - s3mockdata:/s3mockroot
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
       interval: 5s
       timeout: 3s
       retries: 20
 
 volumes:
   pgdata:
-  miniodata:
+  s3mockdata:

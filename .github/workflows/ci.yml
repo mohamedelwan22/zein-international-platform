@@ -80,7 +80,10 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17
+        # ECR Public throttled anonymous pulls ("toomanyrequests"); this mirror
+        # serves the identical postgres:17 manifest (verified digest in
+        # docs/ops/dependency-audit.md).
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_DB: zein
           POSTGRES_USER: zein
@@ -115,7 +118,10 @@ jobs:
     timeout-minutes: 35
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17
+        # ECR Public throttled anonymous pulls ("toomanyrequests"); this mirror
+        # serves the identical postgres:17 manifest (verified digest in
+        # docs/ops/dependency-audit.md).
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_DB: zein
           POSTGRES_USER: zein
@@ -155,9 +161,15 @@ jobs:
     name: E2E + axe + RTL (production build)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # S3Mock listens on 9090; override the global endpoint for this job only.
+      S3_ENDPOINT: http://localhost:9090
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17
+        # ECR Public throttled anonymous pulls ("toomanyrequests"); this mirror
+        # serves the identical postgres:17 manifest (verified digest in
+        # docs/ops/dependency-audit.md).
+        image: mirror.gcr.io/library/postgres:17
         env:
           POSTGRES_DB: zein
           POSTGRES_USER: zein
@@ -169,18 +181,18 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
-      minio:
-        # MinIO release tags could not be verified from this environment, so
-        # the image is overridable and must be pinned by the operator before
-        # the workflow is relied on for release gating (docs/ops/dependency-audit.md).
-        image: minio/minio:latest
+      s3mock:
+        # MinIO CE is EOL and `minio/minio` was removed from Docker Hub. Adobe
+        # S3Mock is CI-only; production uses an external S3-compatible bucket
+        # (docs/ops/production-deployment.md). Verified with the repo AWS SDK.
+        image: mirror.gcr.io/adobe/s3mock:latest
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: zein-media
+          COM_ADOBE_TESTING_S3MOCK_STORE_REGION: us-east-1
         ports:
-          - 9000:9000
+          - 9090:9090
         options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-cmd "wget --spider -q http://localhost:9090/favicon.ico"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20

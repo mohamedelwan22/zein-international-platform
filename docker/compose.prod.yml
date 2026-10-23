@@ -1,5 +1,9 @@
 # ---------------------------------------------------------------------------
-# Production stack (T117) — app + Caddy (auto-HTTPS) + PostgreSQL + S3 media.
+# Production stack (T117) — app + Caddy (auto-HTTPS) + PostgreSQL.
+#
+# Media lives in an external S3-compatible bucket (configure S3_* in
+# .env.production); there is no in-stack object-storage service. MinIO CE is
+# EOL and its Docker Hub image was removed, and S3Mock is test/dev only.
 #
 #   docker compose -f docker/compose.prod.yml --env-file .env.production up -d
 #
@@ -12,8 +16,8 @@
 # passed to `--env-file`. Create it from `.env.example` before first run.
 #
 # First-run order (see docs/ops/production-deployment.md):
-#   1. provision .env.production
-#   2. docker compose ... up -d postgres minio
+#   1. provision .env.production + the external S3 bucket
+#   2. docker compose ... up -d postgres
 #   3. docker compose ... --profile tools run --rm migrate   (backup first!)
 #   4. BUILD_ENV_FILE=... docker compose ... build app
 #   5. docker compose ... up -d app caddy
@@ -23,7 +27,9 @@ name: zein-prod
 
 services:
   postgres:
-    image: public.ecr.aws/docker/library/postgres:17
+    # ECR Public throttles anonymous pulls; mirror.gcr.io serves the identical
+    # postgres:17 manifest (see docs/ops/dependency-audit.md).
+    image: mirror.gcr.io/library/postgres:17
     restart: unless-stopped
     env_file:
       - path: ../.env.production
@@ -36,29 +42,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    security_opt:
-      - no-new-privileges:true
-
-  minio:
-    image: ${MINIO_IMAGE:-minio/minio:latest}
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    env_file:
-      - path: ../.env.production
-        required: false # operator-created; see docs/ops/production-deployment.md
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    # Deliberately not published: the app reaches MinIO over the Compose
-    # network and visitors only ever see app-proxied `/api/media/{id}`.
-    expose:
-      - "9000"
-      - "9001"
     security_opt:
       - no-new-privileges:true
 
@@ -78,8 +61,6 @@ services:
         required: false # operator-created; see docs/ops/production-deployment.md
     depends_on:
       postgres:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     user: "1001:1001"
     read_only: true
@@ -154,7 +135,7 @@ services:
   # BACKUP_S3_BUCKET in .env.production for the off-host copy.
   backup:
     profiles: ["tools"]
-    image: public.ecr.aws/docker/library/postgres:17
+    image: mirror.gcr.io/library/postgres:17
     env_file:
       - path: ../.env.production
         required: false # operator-created; see docs/ops/production-deployment.md
@@ -184,7 +165,6 @@ secrets:
 
 volumes:
   pgdata:
-  miniodata:
   next_cache:
   caddy_data:
   caddy_config:

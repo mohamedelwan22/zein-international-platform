@@ -11,18 +11,18 @@ inquiry and partnership lead capture, search, and a CMS-backed admin.
 - Prisma 7 with the `pg` driver adapter, PostgreSQL 17
 - Auth.js v5 (beta) with role-based access (SuperAdmin/Admin/Editor/Viewer)
 - `next-intl` for locale routing (`/en`, `/ar`) and RTL
-- S3-compatible object storage (MinIO in development), media proxied by the app
+- S3-compatible object storage (S3Mock in development), media proxied by the app
 - Vitest (unit/integration) and Playwright + axe (E2E/a11y/RTL)
 
 ## Prerequisites
 
 - Node.js 24 and pnpm 11.2.2 (`corepack enable`)
-- Docker with Compose v2 (PostgreSQL on `:5434`, MinIO on `:9100`)
+- Docker with Compose v2 (PostgreSQL on `:5434`, S3Mock on `:9100`)
 
 ## Local development
 
 ```bash
-pnpm db:up                     # start PostgreSQL + MinIO
+pnpm db:up                     # start PostgreSQL + S3Mock
 cp .env.example .env           # then fill in local values
 pnpm db:migrate                # apply the schema (additive)
 pnpm db:seed                   # load approved seed content

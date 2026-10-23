@@ -142,11 +142,5 @@ pnpm audit --json | jq '.advisories | length'
 
 ## Known operational gap
 
-The MinIO image is referenced as `${MINIO_IMAGE:-minio/minio:latest}` in
-`docker/compose.prod.yml` (and `latest` in the dev stack). Docker Hub's registry
-API was unreachable from the hardening environment, so no specific release tag
-could be verified. **Pin a digest before production**
-(`minio/minio@sha256:…`) and mirror it if the deployment host cannot reach
-Docker Hub. The CI workflow and `docker/compose.prod.yml` accept a
-`MINIO_IMAGE` override for exactly this reason. The same applies to
-`CADDY_IMAGE`.
+- **Object storage:** production uses an external S3-compatible bucket (no in-stack MinIO). `docker/compose.yaml` now uses `mirror.gcr.io/adobe/s3mock:latest` for local dev only; `docker/compose.prod.yml` has no MinIO service. The `MINIO_IMAGE` variable is obsolete and should not be used. If you mirror images for air-gapped hosts, pin by digest (`mirror.gcr.io/library/postgres:17`, `mirror.gcr.io/adobe/s3mock:latest`, `caddy:2-alpine`).
+- **Image pinning:** `CADDY_IMAGE` is not pinned by digest in this environment; pin by digest for reproducible deploys. CI pulls `mirror.gcr.io/library/postgres:17` and `mirror.gcr.io/adobe/s3mock:latest` (verified manifests/digests). Remove `minio/minio` references if present anywhere else.
