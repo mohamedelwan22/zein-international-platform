@@ -7,13 +7,33 @@
  * on any byte difference.
  */
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 export const APPROVED_ASSETS = [
   { source: "docs/logo.png", copy: "public/logo.png" },
   { source: "docs/hero.png", copy: "public/hero.png" },
 ] as const;
+
+/**
+ * Any file served from `public/` is part of the approved visual identity, so
+ * the manifest must be exhaustive (T114): an unlisted asset is ungoverned
+ * content and fails the gate. All other imagery is delivered through the
+ * governed media library (`GET /api/media/{id}`), never from `public/`.
+ */
+export async function findUngovernedPublicAssets(root: string = process.cwd()): Promise<string[]> {
+  const allowed = new Set(APPROVED_ASSETS.map((asset) => asset.copy.replace(/^public\//, "")));
+  const entries = await readdir(path.join(root, "public"), { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => {
+      const parent = entry.parentPath ?? "";
+      const relative = path.relative(path.join(root, "public"), path.join(parent, entry.name));
+      return relative.replace(/\\/g, "/");
+    })
+    .filter((relative) => !allowed.has(relative))
+    .sort();
+}
 
 export interface AssetCheck {
   source: string;
@@ -56,6 +76,17 @@ async function main() {
     console.log(`${status} ${result.copy} sha256=${result.copySha256} (${result.byteSize} bytes)`);
     if (!result.identical || result.byteSize === 0) ok = false;
   }
+
+  const ungoverned = await findUngovernedPublicAssets();
+  if (ungoverned.length > 0) {
+    ok = false;
+    console.error(
+      `FAIL ungoverned file(s) under public/: ${ungoverned.join(", ")} — add them to APPROVED_ASSETS with an approved source, or serve them from the media library.`,
+    );
+  } else {
+    console.log("OK   public/ contains only the approved asset manifest");
+  }
+
   if (!ok) {
     console.error("Approved assets are not byte-identical to their sources.");
     process.exitCode = 1;

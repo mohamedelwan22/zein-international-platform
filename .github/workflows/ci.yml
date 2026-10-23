@@ -1,0 +1,247 @@
+name: CI
+
+# T118 — Phase 15 CI gate.
+#
+# Gate order (per quickstart.md §4 and tasks.md T118):
+#   install (locked) → lint → typecheck → unit → integration (fresh-migration
+#   DB) → production build → E2E + axe → approved-asset SHA-256 verification
+#   → dependency audit.
+#
+# Every value in `env` is a mock/derived CI value (quickstart.md §2): no
+# production credential is ever required to run this workflow, and no secret
+# is read from the repository. Production secrets are supplied per environment
+# by the deployment stack (docs/ops/production-deployment.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the workflow only ever reads the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  # Ephemeral CI services (see the `services:` blocks below). These are
+  # throwaway credentials for CI-only containers.
+  DATABASE_URL: postgresql://zein:zein@localhost:5432/zein
+  S3_ENDPOINT: http://localhost:9000
+  S3_BUCKET: zein-media
+  S3_ACCESS_KEY: minioadmin
+  S3_SECRET_KEY: minioadmin
+  S3_REGION: us-east-1
+  # Mock Auth.js secret — CI only, never used outside this workflow.
+  AUTH_SECRET: ci-only-mock-secret-at-least-32-characters-long
+  AUTH_TRUST_HOST: "true"
+  NEXT_PUBLIC_SITE_URL: http://localhost:3000
+  MAP_PROVIDER: osm
+  MAP_TOKEN: ""
+  LOG_LEVEL: info
+  # Seed-only bootstrap account (prisma/seed.ts requires ADMIN_EMAIL +
+  # ADMIN_PASSWORD of at least 12 characters).
+  ADMIN_EMAIL: ci-admin@example.invalid
+  ADMIN_PASSWORD: ci-only-admin-password
+
+jobs:
+  quality:
+    name: Lint / typecheck / unit / asset integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # src/generated/prisma is gitignored — the generated client must exist
+      # before typecheck, the build and the seed.
+      - run: pnpm db:generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+      # Constitution XIII — approved assets must be byte-identical copies.
+      - run: pnpm verify:assets
+
+  integration:
+    name: Integration (fresh-migration database)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres:17
+        env:
+          POSTGRES_DB: zein
+          POSTGRES_USER: zein
+          POSTGRES_PASSWORD: zein
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zein -d zein"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      # Migrations applied to a fresh DB catch schema drift (Migration Strategy).
+      - run: pnpm db:migrate:prod
+      # The integration suite provisions its own throwaway database.
+      - run: pnpm test:integration
+
+  build:
+    name: Production build (seeded database)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres:17
+        env:
+          POSTGRES_DB: zein
+          POSTGRES_USER: zein
+          POSTGRES_PASSWORD: zein
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zein -d zein"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:prod
+      # Cache Components prerender the cached content loaders, so the build
+      # needs a migrated AND seeded database (not an empty one).
+      - run: pnpm db:seed
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: next-build-log
+          path: .next/
+          retention-days: 3
+
+  e2e:
+    name: E2E + axe + RTL (production build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres:17
+        env:
+          POSTGRES_DB: zein
+          POSTGRES_USER: zein
+          POSTGRES_PASSWORD: zein
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zein -d zein"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      minio:
+        # MinIO release tags could not be verified from this environment, so
+        # the image is overridable and must be pinned by the operator before
+        # the workflow is relied on for release gating (docs/ops/dependency-audit.md).
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate:prod
+      - run: pnpm db:seed
+      - run: pnpm exec playwright install --with-deps chromium
+      # The E2E suite runs against the production build (playwright.config.ts
+      # selects `pnpm start` when CI=true).
+      - run: pnpm build
+      - run: pnpm test:e2e
+      # Dedicated RTL pass (Risk 2 of plan.md) — must discover real tests.
+      - run: pnpm test:e2e:rtl
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Informational and unfiltered: runs before the gate so the run log always
+      # contains the raw registry report (pnpm's `--ignore` mutates workspace
+      # config, so the report must never share a run with it).
+      - name: Dependency audit (full report)
+        continue-on-error: true
+        run: pnpm audit
+      # Gate: our own evaluator allows exactly one reviewed advisory and fails
+      # on anything else. pnpm 11.2.2 `audit --ignore <id>` cannot be used — it
+      # exits 0 for ANY advisory, even with a bogus ID, and persists the value
+      # into pnpm-workspace.yaml (see docs/ops/dependency-audit.md).
+      - name: Dependency audit (gate)
+        run: pnpm verify:deps

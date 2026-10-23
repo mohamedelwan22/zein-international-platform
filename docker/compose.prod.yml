@@ -1,0 +1,191 @@
+# ---------------------------------------------------------------------------
+# Production stack (T117) — app + Caddy (auto-HTTPS) + PostgreSQL + S3 media.
+#
+#   docker compose -f docker/compose.prod.yml --env-file .env.production up -d
+#
+# Nothing in this file contains credentials: every secret is read from
+# `.env.production` (never committed). Hosting/domain remain client decisions
+# (Open Item 7); this file keeps the deployment portable to any VPS/cloud.
+#
+# `env_file` paths are relative to this file (`docker/`), so
+# `../.env.production` is the repository-root `.env.production` — the same file
+# passed to `--env-file`. Create it from `.env.example` before first run.
+#
+# First-run order (see docs/ops/production-deployment.md):
+#   1. provision .env.production
+#   2. docker compose ... up -d postgres minio
+#   3. docker compose ... --profile tools run --rm migrate   (backup first!)
+#   4. BUILD_ENV_FILE=... docker compose ... build app
+#   5. docker compose ... up -d app caddy
+# ---------------------------------------------------------------------------
+
+name: zein-prod
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17
+    restart: unless-stopped
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Deliberately not published: the app reaches MinIO over the Compose
+    # network and visitors only ever see app-proxied `/api/media/{id}`.
+    expose:
+      - "9000"
+      - "9001"
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+      # Build-time env (DATABASE_URL for the prerender + placeholder secrets)
+      # is mounted as a BuildKit secret and never baked into image metadata.
+      secrets:
+        - build_env
+    image: zein-app:${APP_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - next_cache:/app/.next/cache
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: ${APP_MEM_LIMIT:-1g}
+    cpus: ${APP_CPUS:-2}
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    restart: unless-stopped
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+
+  # One-shot migration runner: uses the builder stage because it carries the
+  # Prisma CLI. Always take a backup before running it in production.
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: builder
+      secrets:
+        - build_env
+    image: zein-migrate:${APP_IMAGE_TAG:-latest}
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["pnpm", "db:migrate:prod"]
+    restart: "no"
+
+  # One-shot database backup. Schedule it from the host (cron/systemd timer):
+  #   docker compose -f docker/compose.prod.yml --profile tools run --rm backup
+  # The database dump is written to the `backups` volume; configure
+  # BACKUP_S3_BUCKET in .env.production for the off-host copy.
+  backup:
+    profiles: ["tools"]
+    image: public.ecr.aws/docker/library/postgres:17
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        set -eu;
+        export PGPASSWORD="$$POSTGRES_PASSWORD";
+        stamp=$$(date -u +%Y%m%dT%H%M%SZ);
+        file=/backups/zein-$$stamp.dump;
+        pg_dump -Fc -h postgres -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f "$$file";
+        pg_restore --list "$$file" > /dev/null;
+        sha256sum "$$file" > "$$file.sha256";
+        find /backups -name 'zein-*.dump' -mtime +30 -delete;
+        echo "backup OK: $$file";
+    restart: "no"
+
+secrets:
+  build_env:
+    file: ${BUILD_ENV_FILE:?path to the build-time env file}
+
+volumes:
+  pgdata:
+  miniodata:
+  next_cache:
+  caddy_data:
+  caddy_config:
+  backups:

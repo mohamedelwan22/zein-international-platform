@@ -1,63 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zain International Trading — B2B platform
 
-## Local development prerequisites
+Bilingual (Arabic/English, full RTL) marketing and B2B platform for Zain
+International Trading: public company site, brand/product catalog, directories,
+inquiry and partnership lead capture, search, and a CMS-backed admin.
 
-The app talks to PostgreSQL through the Docker Compose dev stack. **The database
-must be running before `pnpm dev`** — every page that reads content (home,
-directories, catalog) queries it on the server.
+## Stack
 
-```bash
-pnpm db:up      # docker compose up -d  (postgres on :5434, minio on :9100)
-pnpm db:down    # docker compose down
-```
+- Next.js 16.4.2 (App Router, Cache Components, standalone output) + React 19
+- TypeScript, Tailwind CSS 4
+- Prisma 7 with the `pg` driver adapter, PostgreSQL 17
+- Auth.js v5 (beta) with role-based access (SuperAdmin/Admin/Editor/Viewer)
+- `next-intl` for locale routing (`/en`, `/ar`) and RTL
+- S3-compatible object storage (MinIO in development), media proxied by the app
+- Vitest (unit/integration) and Playwright + axe (E2E/a11y/RTL)
 
-`DATABASE_URL` in `.env` points at `postgresql://zein:zein@localhost:5434/zein`
-(see `.env.example`).
+## Prerequisites
 
-> **Diagnosing a Prisma error that mentions `findUnique`/`findMany`:**
-> Prisma 7 with the `pg` driver adapter reports an unreachable database as
-> `PrismaClientKnownRequestError` with `code: "ECONNREFUSED"` — *not* the more
-> familiar `PrismaClientInitializationError` / `P1001`. The invocation shown in
-> the message is the first query that happened to run, not a schema problem.
-> Check that the container is up (`docker compose ps`) before looking at the
-> schema or the generated client.
+- Node.js 24 and pnpm 11.2.2 (`corepack enable`)
+- Docker with Compose v2 (PostgreSQL on `:5434`, MinIO on `:9100`)
 
-Apply the schema to the dev database with `pnpm db:migrate` (creates missing
-tables; additive, non-destructive). `pnpm db:seed` loads the approved seed
-content.
-
-## Getting Started
-
-First, start the dev services (see prerequisites above), then run the
-development server:
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm db:up                     # start PostgreSQL + MinIO
+cp .env.example .env           # then fill in local values
+pnpm db:migrate                # apply the schema (additive)
+pnpm db:seed                   # load approved seed content
+pnpm dev                       # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The database must be running before `pnpm dev`: public pages read content on
+the server. `DATABASE_URL` points at
+`postgresql://zein:zein@localhost:5434/zein` by default.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> **Prisma error with `findUnique`/`findMany` and `code: "ECONNREFUSED"`:** with
+> Prisma 7 + the `pg` adapter an unreachable database surfaces as a
+> `PrismaClientKnownRequestError`, not `P1001`. Check
+> `docker compose ps` before inspecting the schema.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment variables
 
-## Learn More
+Names and safe local defaults are documented in `.env.example`; never commit
+real secrets (`.env*` is git-ignored). Key variables: `DATABASE_URL`,
+`AUTH_SECRET`, `AUTH_TRUST_HOST`, `NEXT_PUBLIC_SITE_URL`, `S3_*`,
+`MAP_PROVIDER`/`MAP_TOKEN`, `LOG_LEVEL`. Production adds `POSTGRES_*`,
+`CADDY_DOMAIN`/`CADDY_EMAIL`, and backup variables — see
+[`docs/ops/production-deployment.md`](./docs/ops/production-deployment.md).
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` / `pnpm build` / `pnpm start` | Next.js dev / production build / server |
+| `pnpm lint` / `pnpm typecheck` | ESLint / `tsc --noEmit` |
+| `pnpm test:unit` / `pnpm test:integration` | Vitest suites |
+| `pnpm test:e2e` / `pnpm test:e2e:rtl` | Playwright suites / RTL + Arabic a11y |
+| `pnpm verify:assets` | SHA-256 check of the approved `public/` manifest |
+| `pnpm verify:deps` | Fail-closed dependency-audit gate |
+| `pnpm audit:content` | Content-governance scan (placeholders/unapproved claims) |
+| `pnpm db:generate` / `db:migrate` / `db:migrate:prod` / `db:seed` | Prisma |
+| `pnpm db:backup` / `db:backup:verify` / `db:restore:drill` | Backup + restore drill |
+| `pnpm storage:setup` | Create media bucket + enable versioning |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Content and data governance
 
-## Deploy on Vercel
+Published content is CMS/seed/settings backed only — no invented facts,
+coordinates, or placeholder copy. The "50 years of success" statistic is
+**not renderable** until a permission-gated approval writes the server-side
+approval register (payload `approved: true` alone is insufficient). Only the
+approved logo/hero assets exist under `public/`. See
+[`docs/ops/content-governance/`](./docs/ops/content-governance/) and
+[`specs/001-zain-b2b-platform/`](./specs/001-zain-b2b-platform/).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Operations
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Production deployment](./docs/ops/production-deployment.md) — Compose stack, build secret, migrations, rollback
+- [Backup and restore](./docs/ops/backup-and-restore.md) — dumps, off-host copy, restore drill
+- [Security headers](./docs/ops/security-headers.md) — CSP/HSTS policy and verification
+- [Dependency audit](./docs/ops/dependency-audit.md) — fail-closed gate and the single temporary exception
+- [Restore-drill evidence](./docs/ops/restore-drills/)
+- Development/verification walkthrough and gate suite: [`specs/001-zain-b2b-platform/quickstart.md`](./specs/001-zain-b2b-platform/quickstart.md)
+
+## Status
+
+Functional and test-covered, but **not yet cleared for production**: a staging
+deploy and off-host backups are still required, and client Open Items
+(domain, map provider, notification provider, analytics/consent, final content,
+backup destination, roles) remain open. See the task list in
+`specs/001-zain-b2b-platform/tasks.md`.

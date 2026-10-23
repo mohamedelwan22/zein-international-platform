@@ -388,7 +388,7 @@ export function InquiryForm({
             </p>
           </details>
         ) : (
-          <p className="mt-3 text-meta text-zain-green-950/60">{t("consentPending")}</p>
+          <p className="mt-3 text-meta text-zain-green-950/70">{t("consentPending")}</p>
         )}
 
         {errors.consentAccepted ? (

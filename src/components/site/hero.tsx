@@ -61,13 +61,14 @@ export function Hero({
           <FadeIn delay={0.1}>
             <h1
               id="hero-heading"
+              dir="auto"
               className="mt-4 font-display text-hero font-medium text-zain-cream-50"
             >
               {hero.headline}
             </h1>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <p className="prose-editorial mt-8 text-body-lg text-zain-cream-50/85">
+            <p className="prose-editorial mt-8 text-body-lg text-zain-cream-50/85" dir="auto">
               {hero.supporting}
             </p>
           </FadeIn>

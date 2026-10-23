@@ -1,0 +1,33 @@
+# Caddy reverse proxy for the Zain platform (T117).
+#
+# Caddy terminates TLS (automatic certificates for CADDY_DOMAIN) and proxies to
+# the Next.js standalone server. It intentionally does NOT set security
+# headers: the application owns them (next.config.ts headers()), and duplicating
+# them here risks two divergent policies.
+
+{
+	email {$CADDY_EMAIL}
+	# Uncomment to use the Let's Encrypt staging CA while validating DNS:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$CADDY_DOMAIN} {
+	encode zstd gzip
+
+	# Uploads are capped by the app (media validation); this is a transport
+	# backstop for malformed oversized bodies.
+	request_body {
+		max_size 30MB
+	}
+
+	reverse_proxy app:3000 {
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logger";
 import { badRequest, notFound, versionConflict } from "@/server/http/errors";
 import {
   CMS_SECTION_SCHEMAS,
+  statisticApprovalKey,
   type CmsSectionKey,
   type SectionFor,
 } from "@/server/validation/cms";
@@ -47,6 +48,43 @@ export async function getPublishedSection<K extends CmsSectionKey>(
   }
 
   return parsed.data as SectionFor<K>;
+}
+
+/**
+ * Published payload plus the server-side approval register (T114).
+ *
+ * `approvedFlags` is written exclusively by `approveStatistic` (permission
+ * `cms:publish`); it is never accepted from a draft PUT. Public rendering
+ * requires BOTH the in-payload flag and a matching register entry, so an
+ * editor cannot publish an unapproved claim simply by posting
+ * `approved: true` as part of the draft (FR-007).
+ */
+export async function getPublishedSectionRecord<K extends CmsSectionKey>(
+  sectionKey: K,
+  locale: AppLocale,
+): Promise<{ content: SectionFor<K>; approvedFlags: Record<string, unknown> | null } | null> {
+  const row = await prisma.cmsSection.findUnique({
+    where: { sectionKey_locale: { sectionKey, locale } },
+    select: { publishedContent: true, approvedFlags: true },
+  });
+
+  if (!row?.publishedContent) {
+    return null;
+  }
+
+  const parsed = CMS_SECTION_SCHEMAS[sectionKey].safeParse(row.publishedContent);
+  if (!parsed.success) {
+    logger.warn(
+      { sectionKey, locale, issues: parsed.error.issues.length },
+      "Stored CMS content failed schema validation — treating as unpublished",
+    );
+    return null;
+  }
+
+  return {
+    content: parsed.data as SectionFor<K>,
+    approvedFlags: (row.approvedFlags as Record<string, unknown> | null) ?? null,
+  };
 }
 
 export interface CmsSectionRow {
@@ -311,9 +349,11 @@ export async function approveStatistic(params: {
     index === statisticIndex ? { ...statistic, approved } : statistic,
   );
 
+  const target = statistics[statisticIndex];
   const approvedFlags: Record<string, unknown> = {
     ...((current.approvedFlags as Record<string, unknown> | null) ?? {}),
-    [`statistics.${statisticIndex}`]: approved,
+    // Keyed by the claim text (T114): an edit invalidates the approval.
+    [statisticApprovalKey(target)]: approved,
   };
 
   const row = await prisma.cmsSection.update({

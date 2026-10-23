@@ -3,6 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import { getPublishedSection } from "@/server/services/cms";
 import { getSettings } from "@/server/services/settings";
 import { getHomeExperience } from "@/server/services/content";
+import { statisticApprovalKey } from "@/server/validation/cms";
 import {
   ABOUT_CONTENT_AR,
   ABOUT_CONTENT_EN,
@@ -45,6 +46,7 @@ async function insertPublishedSection(
   locale: "en" | "ar",
   published: unknown,
   draft: unknown = {},
+  approvedFlags: Record<string, unknown> | null = null,
 ) {
   const user = await ensureTestUser();
   return prisma.cmsSection.create({
@@ -54,6 +56,7 @@ async function insertPublishedSection(
       draftContent: draft as object,
       publishedContent: published as object,
       publishedAt: new Date(),
+      approvedFlags: (approvedFlags ?? undefined) as object | undefined,
       createdById: user.id,
     },
   });
@@ -161,13 +164,23 @@ describe("getSettings (approved settings reads, T031)", () => {
 
 describe("home experience (FR-007 statistics gating, FR-038 content-driven copy)", () => {
   it("renders ONLY approved statistics — the unapproved '50 years' claim is never returned", async () => {
-    await insertPublishedSection("home", "en", {
-      ...HOME_CONTENT_EN,
-      statistics: [
-        { label: "50 years of success", value: "50", approved: false },
-        { label: "Established", value: "1394 AH", approved: true },
-      ],
-    });
+    const approvedStatistic = { label: "Established", value: "1394 AH", approved: true };
+    await insertPublishedSection(
+      "home",
+      "en",
+      {
+        ...HOME_CONTENT_EN,
+        statistics: [
+          { label: "50 years of success", value: "50", approved: false },
+          approvedStatistic,
+        ],
+      },
+      {},
+      // T114: a claim only renders when BOTH `approved: true` in the payload
+      // AND a matching server-side register entry exist. A draft PUT that sets
+      // `approved: true` alone can therefore not self-approve a claim.
+      { [statisticApprovalKey(approvedStatistic)]: true },
+    );
 
     const experience = await getHomeExperience("en");
 
@@ -175,6 +188,17 @@ describe("home experience (FR-007 statistics gating, FR-038 content-driven copy)
     const serialized = JSON.stringify(experience);
     expect(serialized).not.toContain("50 years");
     expect(serialized).not.toContain('"value":"50"');
+  });
+
+  it("never renders an inline `approved: true` claim without a register entry (T114)", async () => {
+    await insertPublishedSection("home", "en", {
+      ...HOME_CONTENT_EN,
+      statistics: [{ label: "Established", value: "1394 AH", approved: true }],
+    });
+
+    const experience = await getHomeExperience("en");
+
+    expect(experience.statistics).toEqual([]);
   });
 
   it("serves business copy from the CMS section — not hardcoded components (FR-038)", async () => {

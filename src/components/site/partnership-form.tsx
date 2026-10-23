@@ -388,7 +388,7 @@ export function PartnershipForm({
             </p>
           </details>
         ) : (
-          <p className="mt-3 text-meta text-zain-green-950/60">{tInquiry("consentPending")}</p>
+          <p className="mt-3 text-meta text-zain-green-950/70">{tInquiry("consentPending")}</p>
         )}
 
         {errors.consentAccepted ? (

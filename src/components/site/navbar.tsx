@@ -122,14 +122,14 @@ export function Navbar() {
         className="container-main flex items-center justify-between gap-2 py-3 lg:gap-4"
       >
         <Link href="/" className="shrink-0">
-          <Logo className="h-8 w-auto lg:h-10" />
+          <Logo className="h-6 w-auto sm:h-8 lg:h-10" />
         </Link>
 
         <Suspense fallback={<NavLinks pathname={null} variant="desktop" />}>
           <ActiveNavLinks variant="desktop" />
         </Suspense>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <SearchOverlay />
           <Suspense fallback={null}>
             <LanguageSwitch />

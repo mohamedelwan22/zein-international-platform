@@ -128,6 +128,25 @@ export type SectionFor<K extends CmsSectionKey> = z.infer<(typeof CMS_SECTION_SC
 
 export const CMS_SECTION_KEYS = Object.keys(CMS_SECTION_SCHEMAS) as CmsSectionKey[];
 
+/**
+ * Stable key identifying an approved statistic CLAIM (T114, FR-007).
+ *
+ * Approval is bound to the exact label+value pair, not to its array position:
+ * editing either string changes the key, so the previously recorded approval
+ * stops matching and the counter disappears from the public render until an
+ * authorized approver re-approves the edited claim. FNV-1a keeps this module
+ * free of Node-only imports (it is shared with client-side validation).
+ */
+export function statisticApprovalKey(statistic: { label: string; value: string }): string {
+  const input = `statistics\u0000${statistic.label}\u0000${statistic.value}`;
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `stat:${hash.toString(16).padStart(8, "0")}:${input.length}`;
+}
+
 // ---------------------------------------------------------------------------
 // Settings value schemas (T031; US6 T069 finalizes the admin surface)
 // ---------------------------------------------------------------------------

@@ -1,0 +1,50 @@
+# Build context exclusions (T117). NEVER let secrets or local state reach the
+# daemon: .env* is excluded wholesale, and only approved assets are copied.
+
+**/node_modules
+**/.next
+**/out
+**/build
+**/dist
+**/.turbo
+
+.git
+.gitignore
+.github
+
+.env
+.env.*
+!.env.example
+
+# local databases / backups / uploads
+backups
+*.dump
+*.dump.sha256
+
+# test + coverage output
+coverage
+playwright-report
+test-results
+blob-report
+.vitest*
+*.tsbuildinfo
+
+# agent/tooling state that must never ship
+.agents
+.claude
+.kilo
+.kiro
+.opencode
+.specify
+specs
+.claude-flow
+.playwright-mcp
+
+# docs are not served; keep the image lean
+docs
+
+# logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
+brands-404.png

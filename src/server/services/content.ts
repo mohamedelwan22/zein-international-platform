@@ -1,11 +1,12 @@
-import { getPublishedSection } from "./cms";
+import { getPublishedSection, getPublishedSectionRecord } from "./cms";
 import { getSettings } from "./settings";
 import { listPublishedCategories, type PublishedCategoryPreview } from "./categories";
-import type {
-  AboutSection,
-  HomeSection,
-  Statistic,
-  SettingsValueFor,
+import {
+  statisticApprovalKey,
+  type AboutSection,
+  type HomeSection,
+  type Statistic,
+  type SettingsValueFor,
 } from "@/server/validation/cms";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -57,18 +58,33 @@ export interface AboutExperience {
   innovation: AboutSection["innovation"] | null;
 }
 
-/** FR-007 gate: unapproved statistics never pass this function. */
-export function approvedStatisticsOnly(statistics: Statistic[]): ApprovedStatistic[] {
+/** FR-007 gate: unapproved statistics never pass this function.
+ *
+ * Two independent conditions are required (T114):
+ *  1. the payload carries `approved: true` (draft validation), and
+ *  2. the server-side approval register contains a matching entry for this
+ *     exact label+value claim, written only by `approveStatistic` (which is
+ *     permission-gated). A draft PUT can therefore not self-approve a claim by
+ *     setting `approved: true`; editing the text also invalidates the entry.
+ */
+export function approvedStatisticsOnly(
+  statistics: Statistic[],
+  approvedFlags: Record<string, unknown> | null,
+): ApprovedStatistic[] {
   return statistics
-    .filter((statistic) => statistic.approved === true)
+    .filter(
+      (statistic) =>
+        statistic.approved === true && approvedFlags?.[statisticApprovalKey(statistic)] === true,
+    )
     .map(({ label, value }) => ({ label, value }));
 }
 
 export async function getHomeExperience(locale: AppLocale): Promise<HomeExperience> {
-  const [section, categories] = await Promise.all([
-    getPublishedSection("home", locale),
+  const [record, categories] = await Promise.all([
+    getPublishedSectionRecord("home", locale),
     listPublishedCategories(locale, { kind: "product" }),
   ]);
+  const section = record?.content ?? null;
 
   return {
     // The raw section is deliberately NOT exposed: unapproved statistics must
@@ -83,7 +99,9 @@ export async function getHomeExperience(locale: AppLocale): Promise<HomeExperien
     innovation: section?.innovation ?? null,
     geographicPresence: section?.geographicPresence ?? null,
     finalCta: section?.finalCta ?? null,
-    statistics: section ? approvedStatisticsOnly(section.statistics) : [],
+    statistics: section
+      ? approvedStatisticsOnly(section.statistics, record?.approvedFlags ?? null)
+      : [],
     categories,
   };
 }

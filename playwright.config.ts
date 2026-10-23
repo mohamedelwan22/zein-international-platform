@@ -4,6 +4,11 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // T118: the debug artifact `zz-us5-debug.spec.ts` is a leftover scratch
+  // spec with no assertions. It is excluded from every Playwright run (local
+  // and CI) so it never reaches the release gate — the file itself is kept
+  // untouched on disk (it is intentionally excluded from version control).
+  testIgnore: "**/zz-us5-debug.spec.ts",
   // T047: provision the four role accounts (idempotent) before the suite.
   globalSetup: "./tests/e2e/global-setup.ts",
   // Tests run against the dev server (webServer below), which compiles routes
@@ -25,11 +30,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
     locale: "en",
   },
-  // The webServer is `pnpm dev` (routes compile on demand); assertions need
-  // headroom beyond the 5s default for cold compiles and client-side
-  // navigations under concurrent project workers. The sign-in action's
-  // redirect to the admin dashboard in particular waits on that section's
-  // first Turbopack compile.
+  // The webServer is `pnpm dev` (routes compile on demand) locally; in CI the
+  // suite runs against the production build (`pnpm build` + `pnpm start`) so
+  // the gate exercises the artifact that would actually be deployed
+  // (Next.js Playwright guide: "run your tests against the production build").
+  // Assertions need headroom beyond the 5s default for cold compiles and
+  // client-side navigations under concurrent project workers. The sign-in
+  // action's redirect to the admin dashboard in particular waits on that
+  // section's first Turbopack compile.
   expect: {
     timeout: 30_000,
   },
@@ -40,7 +48,7 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Mobile Chrome"], viewport: { width: 375, height: 667 } } },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: process.env.CI ? "pnpm start" : "pnpm dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
