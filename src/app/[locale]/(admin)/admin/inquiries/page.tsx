@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { getSessionUser } from "@/server/auth/authorize";
 import { hasPermission } from "@/server/auth/permissions";
 import { listInquiries } from "@/server/services/inquiries";
+import { LeadDeleteButton } from "@/components/admin/lead-delete-button";
 import {
   LEAD_STATUSES,
   leadListQuerySchema,
@@ -81,6 +82,7 @@ export default async function AdminInquiriesPage({ params, searchParams }: PageP
     ? parsed.data
     : { status: undefined, page: 1, pageSize: 20 };
 
+  const canDelete = hasPermission(user.role, "inquiries:delete");
   const { items, total } = await listInquiries({ status, page, pageSize });
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
@@ -151,12 +153,21 @@ export default async function AdminInquiriesPage({ params, searchParams }: PageP
                     {t(STATUS_KEY[lead.status] as never)}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/inquiries/${lead.id}`}
-                      className="text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
-                    >
-                      {t("openInquiry")}
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/admin/inquiries/${lead.id}`}
+                        className="text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
+                      >
+                        {t("openInquiry")}
+                      </Link>
+                      {canDelete ? (
+                        <LeadDeleteButton
+                          id={lead.id}
+                          status={lead.status}
+                          variant="row"
+                        />
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

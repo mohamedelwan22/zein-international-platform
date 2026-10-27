@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { getSessionUser } from "@/server/auth/authorize";
 import { hasPermission } from "@/server/auth/permissions";
 import { listPartnershipRequests } from "@/server/services/partnerships";
+import { LeadDeleteButton } from "@/components/admin/lead-delete-button";
 import {
   LEAD_STATUSES,
   leadListQuerySchema,
@@ -84,6 +85,7 @@ export default async function AdminPartnershipsPage({ params, searchParams }: Pa
     ? parsed.data
     : { status: undefined, page: 1, pageSize: 20 };
 
+  const canDelete = hasPermission(user.role, "partnerships:delete");
   const { items, total } = await listPartnershipRequests({ status, page, pageSize });
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
@@ -154,12 +156,23 @@ export default async function AdminPartnershipsPage({ params, searchParams }: Pa
                     {t(STATUS_KEY[lead.status] as never)}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/partnerships/${lead.id}`}
-                      className="text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
-                    >
-                      {t("openInquiry")}
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/admin/partnerships/${lead.id}`}
+                        className="text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
+                      >
+                        {t("openInquiry")}
+                      </Link>
+                      {canDelete ? (
+                        <LeadDeleteButton
+                          id={lead.id}
+                          status={lead.status}
+                          endpoint="/api/admin/partnerships"
+                          redirectTo="/admin/partnerships"
+                          variant="row"
+                        />
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

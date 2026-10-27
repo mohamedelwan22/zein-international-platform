@@ -130,6 +130,83 @@
   }
 }
 
+/*
+ * Home hero typography and measure.
+ *
+ * The global `--font-display` token is declared on `:root`, but the next/font
+ * variables it references are mounted on <body>, so the token cannot resolve
+ * there. The hero opts into the approved families directly from those
+ * variables. Arabic gets its own display size, leading, and tracking: Amiri
+ * needs taller lines and must not inherit Latin display tracking, which
+ * breaks Arabic joining.
+ */
+@layer components {
+  .hero-copy {
+    width: 100%;
+    max-width: 42rem;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--font-manrope), var(--font-ibm-plex-sans-arabic), sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.45;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .hero-title {
+    font-family: var(--font-cormorant-garamond), var(--font-amiri), serif;
+    font-size: clamp(2.5rem, 5.25vw, 6rem);
+    font-weight: 500;
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+
+  .hero-body {
+    font-family: var(--font-manrope), var(--font-ibm-plex-sans-arabic), sans-serif;
+    font-size: clamp(1.0625rem, 1.15vw, 1.25rem);
+    line-height: 1.65;
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+
+  html[lang="ar"] .hero-eyebrow {
+    font-family: var(--font-ibm-plex-sans-arabic), var(--font-manrope), sans-serif;
+    font-size: 0.875rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  html[lang="ar"] .hero-title {
+    font-family: var(--font-amiri), serif;
+    font-size: clamp(2.25rem, 4.6vw, 5.25rem);
+    font-weight: 700;
+    line-height: 1.32;
+    letter-spacing: 0;
+    max-width: 16ch;
+  }
+
+  html[lang="ar"] .hero-body {
+    font-family: var(--font-ibm-plex-sans-arabic), var(--font-manrope), sans-serif;
+    font-size: clamp(1.125rem, 1.15vw, 1.25rem);
+    line-height: 1.85;
+    max-width: 48ch;
+  }
+
+  @media (min-width: 48rem) {
+    .hero-copy {
+      max-width: 44rem;
+    }
+
+    html[lang="ar"] .hero-copy {
+      max-width: 40rem;
+    }
+  }
+}
+
 /* Skip link — hidden until focused (FR-040 keyboard navigation). */
 @utility skip-link {
   position: absolute;

@@ -36,7 +36,7 @@ export function Hero({
           fill
           priority
           sizes="100vw"
-          className="object-cover"
+          className="object-cover object-[80%_50%] sm:object-[72%_50%] md:object-[64%_50%]"
         />
         {/* §5 overlay — verbatim values; flipped for RTL so the dark,
             text-safe side stays on the reading-start edge. */}
@@ -51,31 +51,35 @@ export function Hero({
         />
       </div>
 
-      <div className="container-main relative flex min-h-[70vh] items-center py-20 md:min-h-[85vh] md:py-28">
-        <div className="max-w-2xl">
+      <div className="container-main relative flex min-h-[calc(100svh-4.5rem)] items-center py-14 sm:py-16 lg:py-20">
+        <div className="hero-copy">
           <FadeIn>
-            <p className="text-meta font-semibold uppercase tracking-widest text-zain-gold-400">
-              {eyebrow}
-            </p>
+            <p className="hero-eyebrow text-zain-gold-400">{eyebrow}</p>
           </FadeIn>
           <FadeIn delay={0.1}>
             <h1
               id="hero-heading"
               dir="auto"
-              className="mt-4 font-display text-hero font-medium text-zain-cream-50"
+              className="hero-title mt-4 text-zain-cream-50 md:mt-5"
             >
               {hero.headline}
             </h1>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <p className="prose-editorial mt-8 text-body-lg text-zain-cream-50/85" dir="auto">
+            <p className="hero-body mt-5 text-zain-cream-50/85 md:mt-7" dir="auto">
               {hero.supporting}
             </p>
           </FadeIn>
           <FadeIn delay={0.3}>
-            <div className="mt-10 flex flex-wrap gap-4">
-              <CtaButton href={primaryCta.href}>{primaryCta.label}</CtaButton>
-              <CtaButton href={secondaryCta.href} variant="secondary">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 md:mt-9">
+              <CtaButton href={primaryCta.href} className="w-full sm:w-auto">
+                {primaryCta.label}
+              </CtaButton>
+              <CtaButton
+                href={secondaryCta.href}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
                 {secondaryCta.label}
               </CtaButton>
             </div>

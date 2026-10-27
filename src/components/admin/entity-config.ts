@@ -1,3 +1,4 @@
+import { GOOGLE_MAPS_EMBED_MAX_LENGTH } from "@/lib/google-maps-embed";
 import type { AdminResource } from "@/server/services/admin";
 
 /**
@@ -223,12 +224,19 @@ export const ENTITY_META: Record<AdminResource, EntityMeta> = {
       { name: "countryCode", labelKey: "fieldCountryCode", kind: "text", max: 2 },
       { name: "latitude", labelKey: "fieldLatitude", kind: "number", nullable: true },
       { name: "longitude", labelKey: "fieldLongitude", kind: "number", nullable: true },
-      { name: "isVerified", labelKey: "fieldVerified", kind: "boolean" },
+      { name: "isVerified", labelKey: "fieldVerified", hintKey: "fieldVerifiedHint", kind: "boolean" },
       { name: "locationType", labelKey: "fieldLocationType", kind: "text", max: 100 },
       { name: "coverage", labelKey: "fieldCoverage", kind: "textarea", localized: true },
       { name: "phone", labelKey: "fieldPhone", kind: "text", max: 50 },
       { name: "email", labelKey: "fieldEmail", kind: "email" },
       { name: "mapUrl", labelKey: "fieldMapUrl", kind: "url" },
+      {
+        name: "mapEmbedUrl",
+        labelKey: "fieldMapEmbedUrl",
+        hintKey: "fieldMapEmbedUrlHint",
+        kind: "textarea",
+        max: GOOGLE_MAPS_EMBED_MAX_LENGTH,
+      },
       { name: "imageMediaId", labelKey: "fieldImage", kind: "media" },
       { name: "isActive", labelKey: "fieldActive", kind: "boolean", default: true },
       { name: "sortOrder", labelKey: "fieldSortOrder", kind: "number" },

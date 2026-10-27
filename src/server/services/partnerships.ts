@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/server/db/prisma";
 import { createLogger } from "@/lib/logger";
-import { notFound, unsupportedMediaType, versionConflict } from "@/server/http/errors";
+import { badRequest, notFound, unsupportedMediaType, versionConflict } from "@/server/http/errors";
 import { assertCanTransition, resolvePublishedContext } from "@/server/services/leads";
 import { getSystemUploaderId } from "@/server/services/system-user";
 import { getMediaStorage } from "@/server/storage/config";
@@ -334,4 +334,60 @@ export async function getAttachment(params: {
     byteSize: object.byteSize,
     fileName: row.attachment.originalName,
   };
+}
+
+/**
+ * Permanently delete a closed partnership request (SC-012). The associated
+ * attachment (Media row + storage object) is cleaned up inside the same
+ * transaction; the storage object is removed best-effort afterward.
+ */
+export async function deletePartnershipRequest(params: {
+  id: string;
+  actorId: string;
+}): Promise<{ id: string; deleted: true }> {
+  const { id, actorId } = params;
+
+  const current = await prisma.partnershipRequest.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      email: true,
+      attachment: { select: { id: true, storageKey: true } },
+    },
+  });
+  if (!current) {
+    throw notFound("Partnership request not found");
+  }
+  if (current.status !== "closed") {
+    throw badRequest("Only closed partnership requests can be deleted", [
+      { path: "id", issue: "notClosed" },
+    ]);
+  }
+
+  const attachmentInfo = current.attachment;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.partnershipRequest.delete({ where: { id } });
+    if (attachmentInfo) {
+      await tx.media.delete({ where: { id: attachmentInfo.id } });
+    }
+    await tx.activityLog.create({
+      data: {
+        actorId,
+        action: "delete",
+        entityType: "partnership",
+        entityId: id,
+        summary: `deleted partnership request from ${current.email}`,
+      },
+    });
+  });
+
+  // Best-effort storage cleanup outside transaction
+  if (attachmentInfo) {
+    await getMediaStorage().delete(attachmentInfo.storageKey).catch(() => undefined);
+  }
+
+  logger.info({ id, actorId }, "Partnership request deleted");
+  return { id, deleted: true };
 }

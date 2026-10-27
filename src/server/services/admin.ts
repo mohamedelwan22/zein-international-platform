@@ -638,6 +638,8 @@ const TRANSITION_PERMISSION = {
   archive: "archive",
   restore: "archive",
   visibility: "visibility",
+  verify: "update",
+  unverify: "update",
 } as const;
 
 const STATUS_TARGET = {
@@ -645,12 +647,18 @@ const STATUS_TARGET = {
   unpublish: "draft",
   archive: "archived",
   restore: "draft",
-} as const satisfies Record<Exclude<keyof typeof TRANSITION_PERMISSION, "visibility">, EntityStatus>;
+} as const satisfies Record<"publish" | "unpublish" | "archive" | "restore", EntityStatus>;
 
 export type TransitionAction = keyof typeof TRANSITION_PERMISSION;
 
 export function isTransitionAction(value: string): value is TransitionAction {
   return value in TRANSITION_PERMISSION;
+}
+
+function isLocationVerificationAction(
+  action: TransitionAction,
+): action is "verify" | "unverify" {
+  return action === "verify" || action === "unverify";
 }
 
 export async function transitionAdminEntity(
@@ -659,6 +667,12 @@ export async function transitionAdminEntity(
   action: TransitionAction,
   raw: unknown,
 ): Promise<Record<string, unknown>> {
+  if (isLocationVerificationAction(action) && resource !== "locations") {
+    throw badRequest("Verification is only supported for locations", [
+      { path: "action", issue: "invalidType" },
+    ]);
+  }
+
   const actor = await requirePermission(`${resource}:${TRANSITION_PERMISSION[action]}`);
   const config = configFor(resource);
   const body = (raw ?? {}) as { version?: number; isActive?: boolean };
@@ -677,10 +691,16 @@ export async function transitionAdminEntity(
 
   const data: Record<string, unknown> = action === "visibility"
     ? { isActive: typeof body.isActive === "boolean" ? body.isActive : !current.isActive }
-    : { status: STATUS_TARGET[action] };
+    : isLocationVerificationAction(action)
+      ? { isVerified: action === "verify" }
+      : { status: STATUS_TARGET[action] };
 
   const activityAction =
-    action === "visibility" ? "visibilityChange" : action === "restore" ? "update" : action;
+    action === "visibility"
+      ? "visibilityChange"
+      : action === "restore" || isLocationVerificationAction(action)
+        ? "update"
+        : action;
 
   const updatedId = await prisma.$transaction(async (tx) => {
     const txDb = tx as unknown as Record<string, AnyDelegate>;

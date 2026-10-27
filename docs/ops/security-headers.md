@@ -33,7 +33,7 @@ object-src 'none';
 base-uri 'self';
 form-action 'self';
 frame-ancestors 'none';
-frame-src 'none';
+frame-src 'self' https://www.google.com https://google.com https://maps.google.com;
 upgrade-insecure-requests
 ```
 
@@ -50,8 +50,10 @@ The app is statically cached (`cacheComponents` + `"use cache"`). A per-request
 nonce requires dynamic rendering for every page and would defeat that caching
 strategy. `'unsafe-inline'` is therefore still present for Next's inline
 bootstrap scripts and for Leaflet/next-image style attributes. The policy still
-blocks external script origins, plugins (`object-src 'none'`), framing,
-`<base>` injection, and cross-origin form posts.
+blocks external script origins, plugins (`object-src 'none'`), being framed
+(`frame-ancestors 'none'`), `<base>` injection, and cross-origin form posts.
+`frame-src` only allows this origin plus the Google Maps embed hosts used by
+location cards; it is not a wildcard.
 
 ## Verify
 

@@ -8,6 +8,7 @@ import { hasPermission } from "@/server/auth/permissions";
 import { getInquiry } from "@/server/services/inquiries";
 import { InquiryNotesForm } from "@/components/admin/inquiry-notes-form";
 import { InquiryStatusControls } from "@/components/admin/inquiry-status-controls";
+import { LeadDeleteButton } from "@/components/admin/lead-delete-button";
 import type { LeadStatusValue } from "@/server/validation/inquiries";
 
 /**
@@ -137,6 +138,10 @@ export default async function AdminInquiryDetailPage({ params }: PageProps) {
       <InquiryStatusControls id={lead.id} status={lead.status} version={lead.version} />
 
       <InquiryNotesForm id={lead.id} notes={lead.notes} version={lead.version} />
+
+      {hasPermission(user.role, "inquiries:delete") ? (
+        <LeadDeleteButton id={lead.id} status={lead.status} />
+      ) : null}
     </section>
   );
 }

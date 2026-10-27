@@ -28,7 +28,7 @@ import type { Role } from "@/server/auth/permissions";
 import type { MediaStorage } from "@/server/storage/types";
 import { POST as submitPartnership } from "@/app/api/partnerships/route";
 import { GET as listPartnerships } from "@/app/api/admin/partnerships/route";
-import { PUT as updateNotes } from "@/app/api/admin/partnerships/[id]/route";
+import { PUT as updateNotes, DELETE as deletePartnership } from "@/app/api/admin/partnerships/[id]/route";
 import { POST as changeStatus } from "@/app/api/admin/partnerships/[id]/status/route";
 import { GET as downloadAttachment } from "@/app/api/admin/partnerships/[id]/attachment/route";
 
@@ -381,5 +381,67 @@ describe("partnership pipeline + notes (SC-012)", () => {
     });
     expect(logs).toHaveLength(1);
     expect(logs[0].actorId).toBe(sales.id);
+  });
+
+  it("refuses to delete a partnership when not closed, deletes when closed along with attachment, and logs deletion", async () => {
+    const sales = await createUser("SalesBusiness");
+    authAs(sales);
+    const created = await submitPartnership(
+      multipartRequest(validFields(), {
+        bytes: pdfBytes("delete-me"),
+        name: "statement.pdf",
+        type: "application/pdf",
+      }),
+    );
+    const { id } = await created.json();
+
+    // Check attachment exists in fake storage
+    const reqRow = await prisma.partnershipRequest.findUnique({
+      where: { id },
+      include: { attachment: true },
+    });
+    expect(reqRow?.attachmentMediaId).toBeDefined();
+    const mediaId = reqRow!.attachmentMediaId!;
+    const storageKey = reqRow!.attachment!.storageKey;
+    expect(storage.has(storageKey)).toBe(true);
+
+    // Still 'new' -> 400 badRequest
+    const refused = await deletePartnership(
+      new Request(`http://localhost/api/admin/partnerships/${id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id }) },
+    );
+    expect(refused.status).toBe(400);
+
+    // Transition to closed
+    await changeStatus(
+      new Request(`http://localhost/api/admin/partnerships/${id}/status`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "closed", version: 1 }),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+
+    // Now delete succeeds
+    const deleted = await deletePartnership(
+      new Request(`http://localhost/api/admin/partnerships/${id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id }) },
+    );
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ id, deleted: true });
+
+    // Verifying row is gone from DB
+    expect(await prisma.partnershipRequest.findUnique({ where: { id } })).toBeNull();
+    // Verifying Media row is also gone
+    expect(await prisma.media.findUnique({ where: { id: mediaId } })).toBeNull();
+    // Verifying storage object is cleaned up
+    expect(storage.has(storageKey)).toBe(false);
+
+    // Verifying ActivityLog has "delete"
+    const deleteLogs = await prisma.activityLog.findMany({
+      where: { entityType: "partnership", entityId: id, action: "delete" },
+    });
+    expect(deleteLogs).toHaveLength(1);
+    expect(deleteLogs[0].actorId).toBe(sales.id);
   });
 });

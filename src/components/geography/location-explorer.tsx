@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { buildGoogleMapsSearchUrl } from "@/lib/google-maps-embed";
 import type { PublicLocation } from "@/server/services/locations";
 import { MapSection } from "./map-section";
 import type { MapPoint } from "./map-provider";
@@ -84,6 +85,12 @@ export function LocationExplorer({
         {locations.map((location) => {
           const isPinnable = hasCoordinates(location);
           const isSelected = isPinnable && location.id === selectedId;
+          const mapLink =
+            location.mapUrl ??
+            (location.mapEmbedUrl
+              ? null
+              : buildGoogleMapsSearchUrl(location.city, location.address));
+          const mapLinkLabel = location.mapUrl ? tCommon("seeMore") : t("openInMaps");
 
           return (
             <li
@@ -103,13 +110,27 @@ export function LocationExplorer({
                 {location.countryCode ? <p dir="ltr">{location.countryCode}</p> : null}
               </address>
 
+              {location.mapEmbedUrl ? (
+                <div className="mt-5 overflow-hidden rounded-sm border border-zain-green-950/10">
+                  <iframe
+                    data-testid="location-map"
+                    src={location.mapEmbedUrl}
+                    title={t("mapFrameTitle", { name: location.city })}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                    className="block aspect-video w-full border-0"
+                  />
+                </div>
+              ) : null}
+
               {location.coverage ? (
                 <p className="mt-4 text-body text-zain-green-950/70">
                   {location.coverage}
                 </p>
               ) : null}
 
-              {location.phone || location.email || location.mapUrl ? (
+              {location.phone || location.email || mapLink ? (
                 <div className="mt-4 flex flex-col gap-1">
                   {location.phone ? (
                     <a
@@ -128,14 +149,15 @@ export function LocationExplorer({
                       {location.email}
                     </a>
                   ) : null}
-                  {location.mapUrl ? (
+                  {mapLink ? (
                     <a
-                      href={location.mapUrl}
+                      data-testid="location-map-fallback"
+                      href={mapLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex min-h-11 items-center text-body font-semibold text-zain-green-700 underline-offset-4 hover:underline"
                     >
-                      {tCommon("seeMore")}
+                      {mapLinkLabel}
                     </a>
                   ) : null}
                 </div>

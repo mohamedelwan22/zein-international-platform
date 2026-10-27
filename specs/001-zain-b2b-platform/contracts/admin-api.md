@@ -45,13 +45,14 @@ Uniform per resource `R` (`brands`, `products`, `suppliers`, `categories`, `clie
 | `POST /api/admin/{R}/{id}/unpublish` | `published→draft` | `{R}:publish` |
 | `POST /api/admin/{R}/{id}/archive` · `/restore` | lifecycle | `{R}:archive` |
 | `POST /api/admin/{R}/{id}/visibility` | toggle `isActive` | `{R}:visibility` |
+| `POST /api/admin/locations/{id}/verify` A� `/unverify` | set `isVerified` (locations only) | `locations:update` |
 | `DELETE /api/admin/{R}/{id}` | hard delete only when unpublished & unreferenced | `{R}:delete` |
 
 Notes:
 
 - Categories typed by `kind` (`brand|product|supplier`) and validate parent depth ≤ 2.
 - Clients: publish+`visibility` **and** `disclosureApproved` both required for public appearance; toggling disclosure is a `409`-safe mutation that writes `ActivityLog` (confidentiality edge case).
-- Locations: staff sets `isVerified` + verified coordinates; map pins render only for verified+published (see `data-model.md` §2.7).
+- Locations: staff sets `isVerified` + verified coordinates; map pins render only for verified+published (see `data-model.md` §2.7). `mapEmbedUrl` accepts a Google Maps embed URL or pasted iframe snippet, stores only the validated `src`, and renders only for public locations.
 - Nesting helpers: `POST/PUT /api/admin/products/{id}/categories` (replace junction set), `POST /api/admin/products/{id}/images` (ordered media refs).
 
 ## 4. Leads (Inquiry, PartnershipRequest)

@@ -80,6 +80,8 @@ export default async function AdminMediaPage({ params, searchParams }: PageProps
     archivedAt: item.archivedAt ? item.archivedAt.toISOString() : null,
     createdAt: item.createdAt.toISOString(),
     url: item.url,
+    isReferenced: Boolean(item.isReferenced),
+    referenceCount: item.referenceCount ?? 0,
   }));
 
   const filters = [

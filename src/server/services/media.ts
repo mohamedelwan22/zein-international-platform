@@ -17,9 +17,9 @@ import type { MediaKind, Prisma } from "@/generated/prisma/client";
  * `MediaImage` component renders the real bytes without any caller change
  * (contracts/README.md §9).
  *
- * Archive is guarded to unreferenced rows; purge additionally requires an
- * archived, still-unreferenced row. Every mutation writes exactly one
- * `ActivityLog` row (SC-012).
+ * Archive keeps references intact so existing public pages continue to render.
+ * Purge removes only references to the selected row before deleting it. Every
+ * mutation writes exactly one `ActivityLog` row (SC-012).
  */
 
 const logger = createLogger("media");
@@ -38,6 +38,9 @@ export interface MediaItem {
   createdAt: Date;
   /** Public, app-proxied URL (`/api/media/{id}`). */
   url: string;
+  /** True when referenced by any catalog or system entity. */
+  isReferenced?: boolean;
+  referenceCount?: number;
 }
 
 export interface MediaPage {
@@ -50,7 +53,8 @@ export interface MediaPage {
 /**
  * The single source of truth for a media row's public URL (T091). App-proxied
  * rather than a bucket URL so authorization/archival state is enforced on
- * every request and the storage provider stays swappable.
+ * every request and the storage provider stays swappable. Archived images
+ * remain available so existing public pages do not break.
  */
 export function publicMediaUrl(id: string): string {
   return `/api/media/${id}`;
@@ -70,10 +74,31 @@ const mediaSelect = {
   createdAt: true,
 } satisfies Prisma.MediaSelect;
 
-type MediaRow = Prisma.MediaGetPayload<{ select: typeof mediaSelect }>;
+const mediaListSelect = {
+  ...mediaSelect,
+  _count: {
+    select: {
+      brandLogos: true,
+      brandCovers: true,
+      productImages: true,
+      productBrochures: true,
+      supplierLogos: true,
+      supplierCovers: true,
+      clientLogos: true,
+      locationImages: true,
+      partnershipAttachments: true,
+      seoOgImages: true,
+    },
+  },
+} satisfies Prisma.MediaSelect;
 
-function toItem(row: MediaRow): MediaItem {
-  return { ...row, url: publicMediaUrl(row.id) };
+type MediaRow = Prisma.MediaGetPayload<{ select: typeof mediaSelect }>;
+type MediaListRow = Prisma.MediaGetPayload<{ select: typeof mediaListSelect }>;
+
+function toItem(row: MediaRow | MediaListRow): MediaItem {
+  const countObj = "_count" in row && row._count ? (row._count as Record<string, number>) : null;
+  const referenceCount = countObj ? Object.values(countObj).reduce((sum, value) => sum + value, 0) : 0;
+  return { ...row, isReferenced: referenceCount > 0, referenceCount, url: publicMediaUrl(row.id) };
 }
 
 export async function uploadMedia(params: {
@@ -143,7 +168,7 @@ export async function listMedia(params: {
       orderBy: { createdAt: "desc" },
       skip: (params.page - 1) * params.pageSize,
       take: params.pageSize,
-      select: mediaSelect,
+      select: mediaListSelect,
     }),
     prisma.media.count({ where }),
   ]);
@@ -156,8 +181,21 @@ export async function getMedia(id: string): Promise<MediaItem | null> {
   return row ? toItem(row) : null;
 }
 
-/** True when any entity still references this media row (archive guard). */
-export async function isMediaReferenced(id: string): Promise<boolean> {
+export interface MediaReferenceCounts {
+  brandLogos: number;
+  brandCovers: number;
+  productImages: number;
+  productBrochures: number;
+  supplierLogos: number;
+  supplierCovers: number;
+  clientLogos: number;
+  locationImages: number;
+  partnershipAttachments: number;
+  seoOgImages: number;
+}
+
+/** Discover every schema relation that points at a media row. */
+export async function getMediaReferenceCounts(id: string): Promise<MediaReferenceCounts> {
   const counts = await prisma.media.findUnique({
     where: { id },
     select: {
@@ -180,7 +218,12 @@ export async function isMediaReferenced(id: string): Promise<boolean> {
   if (!counts) {
     throw notFound("Media not found");
   }
-  return Object.values(counts._count).some((value) => value > 0);
+  return counts._count;
+}
+
+export async function isMediaReferenced(id: string): Promise<boolean> {
+  const counts = await getMediaReferenceCounts(id);
+  return Object.values(counts).some((value) => value > 0);
 }
 
 export async function updateMedia(params: {
@@ -234,10 +277,6 @@ export async function archiveMedia(params: {
     });
     return toItem(current);
   }
-  if (await isMediaReferenced(params.id)) {
-    throw badRequest("Media is still referenced", [{ path: "id", issue: "mediaInUse" }]);
-  }
-
   const row = await prisma.media.update({
     where: { id: params.id },
     data: { archivedAt: new Date() },
@@ -257,7 +296,11 @@ export async function archiveMedia(params: {
   return toItem(row);
 }
 
-/** Purge an archived, unreferenced row: drop the object, then the row. */
+/**
+ * Purge an archived row after safely unlinking only this media row's
+ * references. The object is removed first; if storage refuses the delete, the
+ * database remains untouched and no reference is broken.
+ */
 export async function purgeMedia(params: { id: string; actorId: string }): Promise<void> {
   const existing = await prisma.media.findUnique({
     where: { id: params.id },
@@ -271,26 +314,92 @@ export async function purgeMedia(params: { id: string; actorId: string }): Promi
       { path: "id", issue: "mediaNotArchived" },
     ]);
   }
-  if (await isMediaReferenced(params.id)) {
-    throw badRequest("Media is still referenced", [{ path: "id", issue: "mediaInUse" }]);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.brand.updateMany({
+        where: { logoMediaId: params.id },
+        data: { logoMediaId: null },
+      });
+      await tx.brand.updateMany({
+        where: { coverMediaId: params.id },
+        data: { coverMediaId: null },
+      });
+      await tx.productImage.deleteMany({ where: { mediaId: params.id } });
+      await tx.product.updateMany({
+        where: { brochureMediaId: params.id },
+        data: { brochureMediaId: null },
+      });
+      await tx.supplier.updateMany({
+        where: { logoMediaId: params.id },
+        data: { logoMediaId: null },
+      });
+      await tx.supplier.updateMany({
+        where: { coverMediaId: params.id },
+        data: { coverMediaId: null },
+      });
+      await tx.client.updateMany({ where: { logoMediaId: params.id }, data: { logoMediaId: null } });
+      await tx.location.updateMany({
+        where: { imageMediaId: params.id },
+        data: { imageMediaId: null },
+      });
+      await tx.partnershipRequest.updateMany({
+        where: { attachmentMediaId: params.id },
+        data: { attachmentMediaId: null },
+      });
+      await tx.seoMeta.updateMany({
+        where: { ogImageMediaId: params.id },
+        data: { ogImageMediaId: null },
+      });
+
+      const remaining = await tx.media.findUnique({
+        where: { id: params.id },
+        select: {
+          _count: {
+            select: {
+              brandLogos: true,
+              brandCovers: true,
+              productImages: true,
+              productBrochures: true,
+              supplierLogos: true,
+              supplierCovers: true,
+              clientLogos: true,
+              locationImages: true,
+              partnershipAttachments: true,
+              seoOgImages: true,
+            },
+          },
+        },
+      });
+      if (!remaining || Object.values(remaining._count).some((value) => value > 0)) {
+        throw badRequest("Media references could not be safely removed", [
+          { path: "id", issue: "referencesRemain" },
+        ]);
+      }
+
+      await tx.media.delete({ where: { id: params.id } });
+      await tx.activityLog.create({
+        data: {
+          actorId: params.actorId,
+          action: "delete",
+          entityType: "media",
+          entityId: params.id,
+          summary: `purged ${existing.originalName} and unlinked media references`,
+        },
+      });
+    });
+  } catch (error) {
+    logger.error({ err: error, id: params.id }, "Media database cleanup failed; storage unchanged");
+    throw error;
   }
 
-  await getMediaStorage()
-    .delete(existing.storageKey)
-    .catch((err) => logger.warn({ err, id: params.id }, "Failed to delete media object"));
-
-  await prisma.$transaction(async (tx) => {
-    await tx.media.delete({ where: { id: params.id } });
-    await tx.activityLog.create({
-      data: {
-        actorId: params.actorId,
-        action: "delete",
-        entityType: "media",
-        entityId: params.id,
-        summary: `purged ${existing.originalName}`,
-      },
-    });
-  });
+  try {
+    await getMediaStorage().delete(existing.storageKey);
+  } catch (error) {
+    logger.error({ err: error, id: params.id }, "Failed to delete media object after database cleanup");
+    throw badRequest("Media was unlinked but storage cleanup failed", [
+      { path: "id", issue: "storageDeleteFailed" },
+    ]);
+  }
 
   logger.info({ mediaId: params.id, actorId: params.actorId }, "Media purged");
 }
@@ -304,7 +413,8 @@ export interface PublicImageMeta {
 /**
  * Resolve the storage metadata for a public image (used by
  * `GET /api/media/{id}`). Documents are never exposed publicly (FR-033) —
- * attachments remain behind the permissioned admin download route.
+ * attachments remain behind the permissioned admin download route. Archived
+ * images remain public until they are permanently deleted.
  */
 export async function getPublicImageMeta(id: string): Promise<PublicImageMeta> {
   const row = await prisma.media.findUnique({
@@ -314,10 +424,9 @@ export async function getPublicImageMeta(id: string): Promise<PublicImageMeta> {
       storageKey: true,
       mimeType: true,
       sha256: true,
-      archivedAt: true,
     },
   });
-  if (!row || row.kind !== "image" || row.archivedAt) {
+  if (!row || row.kind !== "image") {
     throw notFound("Image not found");
   }
   return {

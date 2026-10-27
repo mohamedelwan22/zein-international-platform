@@ -510,6 +510,7 @@ model Location {
   phone        String?
   email        String?
   mapUrl       String?
+  mapEmbedUrl  String?
   imageMediaId String?       @db.Uuid
   status       PublishStatus @default(draft)
   isActive     Boolean       @default(true)

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 
 /**
  * Admin Media library (US12, T091, admin-api.md §5).
@@ -25,6 +26,8 @@ export interface MediaRowData {
   archivedAt: string | null;
   createdAt: string;
   url: string;
+  isReferenced?: boolean;
+  referenceCount?: number;
 }
 
 function formatBytes(bytes: number): string {
@@ -185,6 +188,8 @@ function MediaCard({
   const [altAr, setAltAr] = useState(item.altAr ?? "");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
 
   async function run(url: string, method: string, body?: unknown, okText?: string) {
     setBusy(true);
@@ -199,7 +204,15 @@ function MediaCard({
         if (okText) setFeedback({ tone: "ok", text: okText });
         onDone();
       } else if (response.status === 400) {
-        setFeedback({ tone: "error", text: t("mediaInUse") });
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { details?: Array<{ issue?: string }> };
+        } | null;
+        const issue = payload?.error?.details?.[0]?.issue;
+        if (issue === "mediaNotArchived") {
+          setFeedback({ tone: "error", text: t("mediaDeleteActiveBody") });
+        } else {
+          setFeedback({ tone: "error", text: t("mediaInUse") });
+        }
       } else {
         setFeedback({ tone: "error", text: t("mediaActionFailed") });
       }
@@ -235,9 +248,14 @@ function MediaCard({
         <span className="text-meta text-zain-charcoal">
           {t(item.kind === "image" ? "mediaKindImage" : "mediaKindDocument")} · {formatBytes(item.byteSize)}
         </span>
-        {item.archivedAt ? (
-          <span className="text-meta font-semibold text-zain-green-700">{t("mediaArchivedBadge")}</span>
-        ) : null}
+        <div className="flex flex-wrap gap-2 pt-0.5">
+          {item.archivedAt ? (
+            <span className="text-meta font-semibold text-zain-green-700">{t("mediaArchivedBadge")}</span>
+          ) : null}
+          {item.isReferenced ? (
+            <span className="text-meta font-semibold text-amber-700">{t("mediaReferencedBadge")}</span>
+          ) : null}
+        </div>
       </div>
 
       {canUpdate ? (
@@ -283,20 +301,21 @@ function MediaCard({
           <button
             type="button"
             disabled={busy}
-            onClick={() => void run(`/api/admin/media/${item.id}/archive`, "POST", undefined, t("mediaArchiveDone"))}
+            onClick={() => setConfirmArchiveOpen(true)}
             className="min-h-9 rounded-sm border border-zain-green-950/25 px-3 py-1 text-meta font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
           >
             {t("mediaArchive")}
           </button>
         ) : null}
-        {canDelete && item.archivedAt !== null ? (
+        {canDelete ? (
           <button
             type="button"
             disabled={busy}
-            onClick={() => void run(`/api/admin/media/${item.id}`, "DELETE", undefined, t("mediaPurged"))}
+            aria-label={t("mediaDeleteAriaLabel", { name: item.originalName })}
+            onClick={() => setConfirmDeleteOpen(true)}
             className="min-h-9 rounded-sm border border-red-700/40 px-3 py-1 text-meta font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
           >
-            {t("mediaPurge")}
+            {t("mediaDelete")}
           </button>
         ) : null}
       </div>
@@ -309,6 +328,49 @@ function MediaCard({
           {feedback.text}
         </span>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmArchiveOpen}
+        title={t("mediaArchiveConfirmTitle", { name: item.originalName })}
+        body={
+          item.isReferenced
+            ? t("mediaArchiveReferencedBody", {
+                name: item.originalName,
+                count: item.referenceCount ?? 0,
+              })
+            : t("mediaArchiveConfirmBody", { name: item.originalName })
+        }
+        confirmLabel={item.isReferenced ? t("mediaArchiveAnyway") : t("mediaArchive")}
+        cancelLabel={t("entityCancel")}
+        busy={busy}
+        tone="default"
+        onConfirm={() => {
+          setConfirmArchiveOpen(false);
+          void run(`/api/admin/media/${item.id}/archive`, "POST", undefined, t("mediaArchiveDone"));
+        }}
+        onCancel={() => setConfirmArchiveOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title={t("mediaDeleteConfirmTitle", { name: item.originalName })}
+        body={t("mediaDeleteConfirmBody", {
+          name: item.originalName,
+          referenceStatus: item.isReferenced
+            ? t("mediaDeleteReferencedBody", { count: item.referenceCount ?? 0 })
+            : t("mediaDeleteUnreferencedBody"),
+        })}
+        confirmLabel={t("mediaDelete")}
+        cancelLabel={t("entityCancel")}
+        busy={busy}
+        tone="danger"
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          void run(`/api/admin/media/${item.id}`, "DELETE", undefined, t("mediaPurged"));
+        }}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+
     </li>
   );
 }

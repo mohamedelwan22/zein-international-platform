@@ -26,6 +26,7 @@ vi.mock("next/cache", () => ({ revalidateTag: revalidateTagMock }));
 import { prisma } from "@/server/db/prisma";
 import type { Role } from "@/server/auth/permissions";
 import { listPublishedBrands, listPublishedProducts } from "@/server/services/catalog";
+import { listPublicLocations } from "@/server/services/locations";
 
 import * as brands from "@/app/api/admin/brands/route";
 import * as brandItem from "@/app/api/admin/brands/[id]/route";
@@ -40,6 +41,7 @@ import * as clients from "@/app/api/admin/clients/route";
 import * as clientItem from "@/app/api/admin/clients/[id]/route";
 import * as locations from "@/app/api/admin/locations/route";
 import * as locationItem from "@/app/api/admin/locations/[id]/route";
+import * as locationAction from "@/app/api/admin/locations/[id]/[action]/route";
 
 const TEST_DOMAIN = "@us7-it.test";
 
@@ -533,6 +535,125 @@ describe("clients (FR-029) and locations (FR-030)", () => {
     const verifiedBody = (await verified.json()) as Detail;
     expect(Number(verifiedBody.latitude)).toBeCloseTo(21.4858, 3);
     expect(verifiedBody.isVerified).toBe(true);
+  });
+
+  it("requires explicit verify and unverify actions before a location is public", async () => {
+    const pm = await createStaff("ProductManager");
+    authAs(pm);
+    const created = await locations.POST(
+      jsonReq("/api/admin/locations", "POST", {
+        cityEn: "Jeddah",
+        cityAr: "جدة",
+        addressEn: "Aziziyah District, 23337 King Fahd Road",
+        addressAr: "حي العزيزية، 23337 طريق الملك فهد",
+      }),
+    );
+    expect(created.status).toBe(201);
+    const location = (await created.json()) as Detail;
+
+    // Creation stays confidential: unverified and draft.
+    expect((await listPublicLocations("en")).map((entry) => entry.id)).not.toContain(location.id);
+
+    authAs(pm);
+    const verified = await locationAction.POST(
+      jsonReq(`/api/admin/locations/${location.id}/verify`, "POST", {
+        version: location.version,
+      }),
+      actionParams(location.id, "verify"),
+    );
+    expect(verified.status).toBe(200);
+    const verifiedBody = (await verified.json()) as Detail;
+    expect(verifiedBody.isVerified).toBe(true);
+    expect(verifiedBody.status).toBe("draft");
+
+    // Verified alone is not enough: it still has to be published.
+    expect((await listPublicLocations("en")).map((entry) => entry.id)).not.toContain(location.id);
+
+    authAs(pm);
+    const published = await locationAction.POST(
+      jsonReq(`/api/admin/locations/${location.id}/publish`, "POST", {
+        version: verifiedBody.version,
+      }),
+      actionParams(location.id, "publish"),
+    );
+    expect(published.status).toBe(200);
+    const publishedBody = (await published.json()) as Detail;
+    expect((await listPublicLocations("en")).map((entry) => entry.id)).toContain(location.id);
+
+    authAs(pm);
+    const unverified = await locationAction.POST(
+      jsonReq(`/api/admin/locations/${location.id}/unverify`, "POST", {
+        version: publishedBody.version,
+      }),
+      actionParams(location.id, "unverify"),
+    );
+    expect(unverified.status).toBe(200);
+    expect(((await unverified.json()) as Detail).isVerified).toBe(false);
+    expect((await listPublicLocations("en")).map((entry) => entry.id)).not.toContain(location.id);
+  });
+
+  it("accepts only Google Maps embed URLs", async () => {
+    const pm = await createStaff("ProductManager");
+    authAs(pm);
+    const created = await locations.POST(
+      jsonReq("/api/admin/locations", "POST", {
+        cityEn: "Jeddah",
+        cityAr: "جدة",
+        addressEn: "Aziziyah District, 23337 King Fahd Road",
+        addressAr: "حي العزيزية، 23337 طريق الملك فهد",
+      }),
+    );
+    const location = (await created.json()) as Detail;
+
+    authAs(pm);
+    const rejected = await locationItem.PUT(
+      jsonReq("/api/admin/locations/embed", "PUT", {
+        cityEn: "Jeddah",
+        cityAr: "جدة",
+        addressEn: "Aziziyah District, 23337 King Fahd Road",
+        addressAr: "حي العزيزية، 23337 طريق الملك فهد",
+        mapEmbedUrl: "https://evil.example/maps/embed?pb=jeddah",
+        version: location.version,
+      }),
+      params(location.id),
+    );
+    expect(rejected.status).toBe(400);
+
+    authAs(pm);
+    const accepted = await locationItem.PUT(
+      jsonReq("/api/admin/locations/embed", "PUT", {
+        cityEn: "Jeddah",
+        cityAr: "جدة",
+        addressEn: "Aziziyah District, 23337 King Fahd Road",
+        addressAr: "حي العزيزية، 23337 طريق الملك فهد",
+        mapEmbedUrl: "https://www.google.com/maps/embed?pb=jeddah",
+        version: location.version,
+      }),
+      params(location.id),
+    );
+    expect(accepted.status).toBe(200);
+    const acceptedBody = (await accepted.json()) as Detail;
+    expect(acceptedBody.mapEmbedUrl).toBe(
+      "https://www.google.com/maps/embed?pb=jeddah",
+    );
+
+    authAs(pm);
+    const snippetAccepted = await locationItem.PUT(
+      jsonReq("/api/admin/locations/embed", "PUT", {
+        cityEn: "Jeddah",
+        cityAr: "جدة",
+        addressEn: "Aziziyah District, 23337 King Fahd Road",
+        addressAr: "حي العزيزية 23337 طريق الملك فهد",
+        mapEmbedUrl:
+          '<iframe src="https://www.google.com/maps/embed?pb=jeddah&amp;hl=en" width="600" height="450"></iframe>',
+        version: acceptedBody.version,
+      }),
+      params(location.id),
+    );
+    expect(snippetAccepted.status).toBe(200);
+    expect(((await snippetAccepted.json()) as Detail).mapEmbedUrl).toBe(
+      "https://www.google.com/maps/embed?pb=jeddah&hl=en",
+    );
   });
 });
 

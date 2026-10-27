@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { ConfirmDialog } from "./confirm-dialog";
 import { MediaPicker } from "./media-picker";
 import { TextAreaField, TextField } from "./cms-fields";
 
@@ -116,6 +117,7 @@ export function SeoEditor({
     tone: "ok" | "error";
     text: string;
   } | null>(null);
+  const [pendingDeleteRedirect, setPendingDeleteRedirect] = useState<SeoEditorRedirect | null>(null);
 
   const target = targets.find((entry) => entry.key === targetKey) ?? targets[0];
   const stateKey = `${target?.key ?? ""}:${locale}`;
@@ -554,7 +556,7 @@ export function SeoEditor({
                       <td className="p-3">
                         <button
                           type="button"
-                          onClick={() => void removeRedirect(entry.id)}
+                          onClick={() => setPendingDeleteRedirect(entry)}
                           disabled={redirectBusy}
                           className="min-h-9 rounded-sm border border-red-700/40 px-3 py-1 text-meta font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
                         >
@@ -569,6 +571,30 @@ export function SeoEditor({
           )}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={pendingDeleteRedirect !== null}
+        title={t("seoRedirectDeleteConfirmTitle")}
+        body={
+          pendingDeleteRedirect
+            ? t("seoRedirectDeleteConfirmBody", {
+                from: pendingDeleteRedirect.oldSlug,
+                to: pendingDeleteRedirect.newSlug,
+              })
+            : ""
+        }
+        confirmLabel={t("seoRedirectDelete")}
+        cancelLabel={t("entityCancel")}
+        busy={redirectBusy}
+        tone="danger"
+        onConfirm={async () => {
+          if (!pendingDeleteRedirect) return;
+          const id = pendingDeleteRedirect.id;
+          setPendingDeleteRedirect(null);
+          await removeRedirect(id);
+        }}
+        onCancel={() => setPendingDeleteRedirect(null)}
+      />
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db/prisma";
 import { createLogger } from "@/lib/logger";
-import { notFound, versionConflict } from "@/server/http/errors";
+import { badRequest, notFound, versionConflict } from "@/server/http/errors";
 import { assertCanTransition, resolvePublishedContext } from "@/server/services/leads";
 import type { InquiryInput } from "@/server/validation/inquiries";
 import type { InquiryType, LeadStatus, Prisma } from "@/generated/prisma/client";
@@ -235,4 +235,45 @@ export async function updateNotes(params: {
   });
 
   return updated;
+}
+
+/**
+ * Permanently delete a closed inquiry (SC-012). Only closed leads may be
+ * deleted — open pipeline items must be closed first to prevent accidental
+ * data loss. Writes one `ActivityLog` row.
+ */
+export async function deleteInquiry(params: {
+  id: string;
+  actorId: string;
+}): Promise<{ id: string; deleted: true }> {
+  const { id, actorId } = params;
+
+  const current = await prisma.inquiry.findUnique({
+    where: { id },
+    select: { id: true, status: true, email: true },
+  });
+  if (!current) {
+    throw notFound("Inquiry not found");
+  }
+  if (current.status !== "closed") {
+    throw badRequest("Only closed inquiries can be deleted", [
+      { path: "id", issue: "notClosed" },
+    ]);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.inquiry.delete({ where: { id } });
+    await tx.activityLog.create({
+      data: {
+        actorId,
+        action: "delete",
+        entityType: "inquiry",
+        entityId: id,
+        summary: `deleted inquiry from ${current.email}`,
+      },
+    });
+  });
+
+  logger.info({ id, actorId }, "Inquiry deleted");
+  return { id, deleted: true };
 }

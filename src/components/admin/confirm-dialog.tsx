@@ -15,7 +15,7 @@ export interface ConfirmDialogProps {
   title: string;
   body: string;
   confirmLabel: string;
-  cancelLabel: string;
+  cancelLabel?: string;
   busy?: boolean;
   tone?: "danger" | "default";
   onConfirm: () => void;
@@ -65,14 +65,16 @@ export function ConfirmDialog({
         {body}
       </p>
       <div className="mt-6 flex flex-wrap justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          className="min-h-11 rounded-sm border border-zain-green-950/25 px-5 py-2 text-body font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
-        >
-          {cancelLabel}
-        </button>
+        {cancelLabel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="min-h-11 rounded-sm border border-zain-green-950/25 px-5 py-2 text-body font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
+          >
+            {cancelLabel}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onConfirm}

@@ -151,10 +151,11 @@ Fields: name/slug/summary per locale, `originCountry_en/originCountry_ar?`, opti
 | isVerified | boolean | default false |
 | phone / email | text? | |
 | mapUrl? | text? | provider-supplied link if available |
+| mapEmbedUrl? | text? | optional Google Maps embed URL; staff may paste a URL or iframe snippet, but only the validated `src` URL is stored and re-validated before rendering |
 | imageMediaId | uuid? FK | |
 | status / isActive / sortOrder / version / audit cols | | convention |
 
-**Render rule**: public map pins require `isVerified = true AND latitude/longitude IS NOT NULL AND status='published'`; otherwise text-address rendering. Map provider ⚠ (Open Item 7).
+**Render rule**: public map pins require `isVerified = true AND latitude/longitude IS NOT NULL AND status='published'`; otherwise text-address rendering. An eligible public location with a valid `mapEmbedUrl` also renders a responsive Google Maps iframe; without one it falls back to the text address and an address-search link. Map provider ⚠ (Open Item 7).
 
 ### 2.8 CmsSection
 

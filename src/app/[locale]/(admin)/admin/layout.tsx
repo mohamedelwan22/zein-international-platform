@@ -47,15 +47,23 @@ export default async function AdminLayout({
   const t = await getTranslations("common");
 
   return (
-    <div className="grid min-h-dvh grid-cols-1 bg-zain-cream-100 md:grid-cols-[17rem_minmax(0,1fr)]">
+    <div className="bg-zain-cream-100">
       <a
         href="#main-content"
         className="skip-link rounded-sm bg-zain-cream-50 px-4 py-3 text-body font-semibold text-zain-green-950"
       >
         {t("skipToContent")}
       </a>
-      <AdminSidebar sections={sections} userName={user.name} locale={locale} />
-      <main id="main-content" className="p-6 md:p-10">
+      <div className="hidden md:block">
+        <AdminSidebar sections={sections} userName={user.name} locale={locale} />
+      </div>
+      <div className="md:hidden">
+        <AdminSidebar sections={sections} userName={user.name} locale={locale} />
+      </div>
+      <main
+        id="main-content"
+        className="min-h-dvh overflow-x-hidden p-6 md:ms-[17rem] md:h-dvh md:min-h-0 md:overflow-y-auto md:overflow-x-hidden md:p-10"
+      >
         {children}
       </main>
       <SessionGuard />

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { buildContentSecurityPolicy } from "./src/lib/content-security-policy";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -12,29 +13,15 @@ const withNextIntl = createNextIntlPlugin();
  * the caching strategy in plan.md. `'unsafe-inline'` is therefore still
  * required for Next's inline bootstrap scripts and for Leaflet/next-image
  * style attributes; the policy still blocks external script origins, plugin
- * content, framing, `<base>` injection and cross-origin form posts.
+ * content, being framed (`frame-ancestors`), `<base>` injection and
+ * cross-origin form posts. `frame-src` narrowly allows the Google Maps embed
+ * origins used by location cards.
  * The stricter nonce/SRI upgrade path is tracked in
  * `docs/ops/security-headers.md`.
  */
 const isProduction = process.env.NODE_ENV === "production";
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data: https://tile.openstreetmap.org",
-  "font-src 'self' data:",
-  `connect-src 'self'${isProduction ? "" : " ws: wss:"}`,
-  "media-src 'self' blob:",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "frame-src 'none'",
-  ...(isProduction ? ["upgrade-insecure-requests"] : []),
-].join("; ");
+const contentSecurityPolicy = buildContentSecurityPolicy(isProduction);
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
@@ -70,7 +57,7 @@ const nextConfig: NextConfig = {
     // os.cpus().length (12), which exhausts memory during page-data
     // collection on a 7.6 GB box. Supported key in Next 16.4.0
     // (see next/dist/build/index.js getNumberOfWorkers).
-    cpus: 2,
+    cpus: 1,
   },
   turbopack: {
     rules: {

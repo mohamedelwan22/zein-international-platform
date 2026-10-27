@@ -5,8 +5,8 @@ import { archiveMedia } from "@/server/services/media";
 
 /**
  * `POST /api/admin/media/{id}/archive` (US12, T091, admin-api.md §5).
- * `media:archive` — soft-archives only when no entity references the row
- * (guarded in the service); the action is audited (SC-012).
+ * `media:archive` — soft-archives the row without removing references so
+ * existing public pages remain intact; the action is audited (SC-012).
  */
 
 export async function POST(

@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/server/auth/authorize";
 import { badRequest, notFound } from "@/server/http/errors";
 import { errorResponse, readJson } from "@/server/http/handler";
-import { getPartnershipRequest, updateNotes } from "@/server/services/partnerships";
+import { deletePartnershipRequest, getPartnershipRequest, updateNotes } from "@/server/services/partnerships";
 import { issueDetails, leadNotesSchema } from "@/server/validation/inquiries";
 
 /**
  * `/api/admin/partnerships/{id}` (T064, admin-api.md §4):
- * `GET` detail (read) and `PUT` internal notes only (`partnerships:update`).
+ * `GET` detail (read), `PUT` internal notes (`partnerships:update`),
+ * `DELETE` permanently remove a closed partnership request (`partnerships:delete`).
  */
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -45,6 +46,21 @@ export async function PUT(request: Request, { params }: RouteContext) {
     });
 
     return NextResponse.json(updated);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const actor = await requirePermission("partnerships:delete");
+    const { id } = await params;
+
+    await deletePartnershipRequest({ id, actorId: actor.id });
+    return NextResponse.json({ id, deleted: true });
   } catch (error) {
     return errorResponse(error);
   }

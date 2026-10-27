@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  GOOGLE_MAPS_EMBED_MAX_LENGTH,
+  normalizeGoogleMapsEmbedUrl,
+} from "@/lib/google-maps-embed";
 
 /**
  * Catalog/directory entity validation (US7, T075, admin-api.md §3,
@@ -59,6 +63,18 @@ const optionalEmail = z
   .email({ error: "invalidEmail" })
   .nullish()
   .transform((value) => (value && value.length > 0 ? value : null));
+
+const optionalMapEmbedUrl = z
+  .string()
+  .trim()
+  .max(GOOGLE_MAPS_EMBED_MAX_LENGTH, { error: "maxLength" })
+  .nullish()
+  .superRefine((value, ctx) => {
+    if (value && value.length > 0 && normalizeGoogleMapsEmbedUrl(value) === null) {
+      ctx.addIssue({ code: "custom", message: "invalidMapEmbedUrl" });
+    }
+  })
+  .transform((value) => (value && value.length > 0 ? normalizeGoogleMapsEmbedUrl(value) : null));
 
 const optionalUuid = z
   .string()
@@ -307,6 +323,7 @@ const locationFields = {
   phone: optionalText(50),
   email: optionalEmail,
   mapUrl: optionalUrl,
+  mapEmbedUrl: optionalMapEmbedUrl,
   imageMediaId: optionalUuid,
   isActive: z.boolean({ error: "invalidType" }).optional(),
   sortOrder: optionalSortOrder,

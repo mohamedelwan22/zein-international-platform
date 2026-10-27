@@ -27,7 +27,11 @@ import { prisma } from "@/server/db/prisma";
 import type { Role } from "@/server/auth/permissions";
 import { POST as submitInquiry } from "@/app/api/inquiries/route";
 import { GET as listLeads } from "@/app/api/admin/inquiries/route";
-import { GET as getLead, PUT as updateLeadNotes } from "@/app/api/admin/inquiries/[id]/route";
+import {
+  GET as getLead,
+  PUT as updateLeadNotes,
+  DELETE as deleteLead,
+} from "@/app/api/admin/inquiries/[id]/route";
 import { POST as changeLeadStatus } from "@/app/api/admin/inquiries/[id]/status/route";
 
 const TEST_DOMAIN = "@inquiry-it.test";
@@ -325,5 +329,47 @@ describe("lead detail, status pipeline + notes (SC-012)", () => {
 
     const logs = await prisma.activityLog.findMany({ where: { entityId: id } });
     expect(logs.some((log) => log.action === "update")).toBe(true);
+  });
+
+  it("refuses to delete an inquiry when not closed, deletes when closed, and logs deletion", async () => {
+    const sales = await createUser("SalesBusiness");
+    authAs(sales);
+    const created = await submitInquiry(postRequest(validPayload()));
+    const { id } = await created.json();
+
+    // Still 'new' -> 400 badRequest
+    const refused = await deleteLead(
+      new Request(`http://localhost/api/admin/inquiries/${id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id }) },
+    );
+    expect(refused.status).toBe(400);
+
+    // Transition to closed
+    await changeLeadStatus(
+      new Request(`http://localhost/api/admin/inquiries/${id}/status`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "closed", version: 1 }),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+
+    // Now delete succeeds
+    const deleted = await deleteLead(
+      new Request(`http://localhost/api/admin/inquiries/${id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id }) },
+    );
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ id, deleted: true });
+
+    // Verifying row is gone from DB
+    expect(await prisma.inquiry.findUnique({ where: { id } })).toBeNull();
+
+    // Verifying ActivityLog has "delete"
+    const deleteLogs = await prisma.activityLog.findMany({
+      where: { entityType: "inquiry", entityId: id, action: "delete" },
+    });
+    expect(deleteLogs).toHaveLength(1);
+    expect(deleteLogs[0].actorId).toBe(sales.id);
   });
 });

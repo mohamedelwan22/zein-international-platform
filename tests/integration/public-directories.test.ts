@@ -55,6 +55,7 @@ async function seedLocations(createdById: string) {
       longitude: 39.192505,
       coverageEn: "Western region distribution hub.",
       coverageAr: "مركز التوزيع في المنطقة الغربية.",
+      mapEmbedUrl: "https://www.google.com/maps/embed?pb=jeddah",
       isVerified: true,
       status: "published" as const,
       isActive: true,
@@ -182,6 +183,40 @@ describe("public location visibility — verified AND published AND active (FR-0
       (location) => location.latitude !== null && location.longitude !== null,
     );
     expect(pinnable.map((location) => location.city)).toEqual(["Jeddah"]);
+  });
+
+  it("returns only validated Google Maps embed URLs", async () => {
+    const admin = await ensureTestUser();
+    const rows = await seedLocations(admin.id);
+
+    const locations = await listPublicLocations("en");
+    expect(locations.find((location) => location.city === "Jeddah")?.mapEmbedUrl).toBe(
+      "https://www.google.com/maps/embed?pb=jeddah",
+    );
+    expect(locations.find((location) => location.city === "Riyadh")?.mapEmbedUrl).toBeNull();
+
+    // A direct-database or legacy value outside Google's embed surface is
+    // ignored on read, so it can never become an iframe src.
+    await prisma.location.update({
+      where: { id: rows.get("verifiedWithCoords")! },
+      data: { mapEmbedUrl: "https://evil.example/maps/embed?pb=jeddah" },
+    });
+    const after = await listPublicLocations("en");
+    expect(after.find((location) => location.city === "Jeddah")?.mapEmbedUrl).toBeNull();
+
+    // A partial paste that omitted the opening `<iframe src="` still resolves
+    // to the URL token; the trailing attributes are never rendered.
+    await prisma.location.update({
+      where: { id: rows.get("verifiedWithCoords")! },
+      data: {
+        mapEmbedUrl:
+          'https://www.google.com/maps/embed?pb=partial" width="600" height="450" style="border:0;"',
+      },
+    });
+    const recovered = await listPublicLocations("en");
+    expect(recovered.find((location) => location.city === "Jeddah")?.mapEmbedUrl).toBe(
+      "https://www.google.com/maps/embed?pb=partial",
+    );
   });
 
   it("returns an empty list when nothing is verified (never a fabricated point)", async () => {

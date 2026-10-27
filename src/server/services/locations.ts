@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db/prisma";
+import { normalizeGoogleMapsEmbedUrl } from "@/lib/google-maps-embed";
 import { pickLocalized } from "@/i18n/localized";
 import type { AppLocale } from "@/i18n/routing";
 import type { Prisma } from "@/generated/prisma/client";
@@ -27,6 +28,8 @@ export interface PublicLocation {
   phone: string | null;
   email: string | null;
   mapUrl: string | null;
+  /** Validated Google Maps embed URL, or null when absent/untrusted. */
+  mapEmbedUrl: string | null;
   imageMediaId: string | null;
   locationType: string | null;
   /** Approved per-location coverage description (FR-030), when set. */
@@ -46,6 +49,7 @@ const locationColumns = {
   phone: true,
   email: true,
   mapUrl: true,
+  mapEmbedUrl: true,
   imageMediaId: true,
   locationType: true,
   coverageEn: true,
@@ -82,6 +86,7 @@ function mapLocation(locale: AppLocale, row: LocationRow): PublicLocation | null
     phone: row.phone,
     email: row.email,
     mapUrl: row.mapUrl,
+    mapEmbedUrl: normalizeGoogleMapsEmbedUrl(row.mapEmbedUrl),
     imageMediaId: row.imageMediaId,
     locationType: row.locationType,
     coverage: coverage?.text ?? null,

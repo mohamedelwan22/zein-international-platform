@@ -82,6 +82,49 @@ test.describe("US8 — public directories & geographic presence", () => {
     await noHorizontalScroll(page);
   });
 
+  test("location cards frame only Google Maps embeds and keep a fallback link", async ({
+    page,
+  }) => {
+    const cspErrors: string[] = [];
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        /content security policy|frame-src/i.test(message.text())
+      ) {
+        cspErrors.push(message.text());
+      }
+    });
+
+    for (const path of ["/en/geographic-presence", "/ar/geographic-presence"]) {
+      await page.goto(path);
+
+      const maps = page.getByTestId("location-map");
+      if ((await maps.count()) > 0) {
+        const map = maps.first();
+        await map.scrollIntoViewIfNeeded();
+        await expect(map).toBeVisible();
+        await expect(map).toHaveAttribute(
+          "src",
+          /^https:\/\/(www\.google\.com|google\.com|maps\.google\.com)\/maps\//,
+        );
+        await expect(map).toHaveAttribute("loading", "lazy");
+        await expect(map).toHaveAttribute("title", /.+/);
+        const box = await map.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThan(0);
+        expect(box?.height ?? 0).toBeGreaterThan(0);
+      } else {
+        const fallbacks = page.getByTestId("location-map-fallback");
+        if ((await fallbacks.count()) > 0) {
+          await expect(fallbacks.first()).toBeVisible();
+        }
+      }
+
+      await noHorizontalScroll(page);
+    }
+
+    expect(cspErrors).toEqual([]);
+  });
+
   test("geographic presence always shows the approved coverage wording and never fabricates points", async ({
     page,
   }) => {

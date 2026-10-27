@@ -10,8 +10,8 @@ import { mediaAltSchema } from "@/server/validation/media";
  * `PUT|DELETE /api/admin/media/{id}` (US12, T091, admin-api.md §5).
  *
  * `PUT` (`media:update`) edits `alt_en`/`alt_ar`. `DELETE` (`media:delete`)
- * purges an archived, unreferenced row (object first, then the row). Both are
- * audited (SC-012).
+ * purges an archived row after transactionally unlinking only its references;
+ * the mutation is audited (SC-012).
  */
 
 export async function PUT(

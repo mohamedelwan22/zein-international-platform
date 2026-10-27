@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/server/auth/authorize";
 import { badRequest, notFound } from "@/server/http/errors";
 import { errorResponse, readJson } from "@/server/http/handler";
-import { getInquiry, updateNotes } from "@/server/services/inquiries";
+import { deleteInquiry, getInquiry, updateNotes } from "@/server/services/inquiries";
 import { issueDetails, leadNotesSchema } from "@/server/validation/inquiries";
 
 /**
  * `/api/admin/inquiries/{id}` (T059, admin-api.md §4):
- * `GET` detail (read) and `PUT` internal notes only (`inquiries:update`).
+ * `GET` detail (read), `PUT` internal notes (`inquiries:update`),
+ * `DELETE` permanently remove a closed inquiry (`inquiries:delete`).
  */
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -45,6 +46,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json(updated);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const actor = await requirePermission("inquiries:delete");
+    const { id } = await params;
+
+    await deleteInquiry({ id, actorId: actor.id });
+    return NextResponse.json({ id, deleted: true });
   } catch (error) {
     return errorResponse(error);
   }

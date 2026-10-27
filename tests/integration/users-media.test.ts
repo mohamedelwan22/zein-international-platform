@@ -145,6 +145,10 @@ beforeEach(async () => {
   storage.clear();
   (globalThis as unknown as { zeinMediaStorage?: MediaStorage }).zeinMediaStorage = mediaStorage;
 
+  await prisma.productImage.deleteMany({});
+  await prisma.productCategory.deleteMany({});
+  await prisma.brandCategory.deleteMany({});
+  await prisma.product.deleteMany({});
   await prisma.brand.deleteMany({});
   await prisma.media.deleteMany({});
   await prisma.activityLog.deleteMany({});
@@ -386,6 +390,36 @@ describe("media library (admin-api.md §5, FR-033)", () => {
     expect((await docs.json()).total).toBe(1);
   });
 
+  it("exposes media reference state and keeps delete guarded by archive and references", async () => {
+    const actor = await createStaff("ContentManager");
+    const created = await uploadViaApi(actor, PNG, "reference-state.png", "image/png");
+
+    authAs(actor);
+    const listed = await listMedia(new Request("http://localhost/api/admin/media"));
+    expect(listed.status).toBe(200);
+    const listedBody = await listed.json();
+    expect(listedBody.items.find((item: { id: string }) => item.id === created.id)?.isReferenced).toBe(false);
+
+    const tooSoon = await purgeMedia(
+      new Request(`http://localhost/api/admin/media/${created.id}`, { method: "DELETE" }),
+      params(created.id),
+    );
+    expect(tooSoon.status).toBe(400);
+    expect((await tooSoon.json()).error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ issue: "mediaNotArchived" })]),
+    );
+
+    await archiveMedia(
+      new Request(`http://localhost/api/admin/media/${created.id}/archive`, { method: "POST" }),
+      params(created.id),
+    );
+    const deleted = await purgeMedia(
+      new Request(`http://localhost/api/admin/media/${created.id}`, { method: "DELETE" }),
+      params(created.id),
+    );
+    expect(deleted.status).toBe(200);
+  });
+
   it("updates alt text (media:update) and refuses it for upload-only roles (403)", async () => {
     const contentManager = await createStaff("ContentManager");
     const created = await uploadViaApi(contentManager, PNG, "a.png", "image/png");
@@ -407,7 +441,7 @@ describe("media library (admin-api.md §5, FR-033)", () => {
     expect(body.altEn).toBe("Shield logo");
   });
 
-  it("blocks archiving referenced media, then archives once unreferenced", async () => {
+  it("archives referenced media without unlinking it, then deletes only the reference", async () => {
     const actor = await createStaff("ContentManager");
     const created = await uploadViaApi(actor, PNG, "used.png", "image/png");
     await prisma.brand.create({
@@ -422,19 +456,23 @@ describe("media library (admin-api.md §5, FR-033)", () => {
     });
 
     authAs(actor);
-    const blocked = await archiveMedia(new Request("http://localhost/x/archive", { method: "POST" }), params(created.id));
-    const blockedBody = await blocked.json();
-    expect(blocked.status).toBe(400);
-    expect(blockedBody.error.details.map((d: { issue: string }) => d.issue)).toContain("mediaInUse");
-
-    await prisma.brand.deleteMany({});
     const archived = await archiveMedia(new Request("http://localhost/x/archive", { method: "POST" }), params(created.id));
     const archivedBody = await archived.json();
     expect(archived.status).toBe(200);
     expect(archivedBody.archivedAt).toBeTruthy();
+    expect((await prisma.brand.count({ where: { logoMediaId: created.id } }))).toBe(1);
     expect(
       await prisma.activityLog.count({ where: { entityId: created.id, action: "archive" } }),
     ).toBe(1);
+
+    const purged = await purgeMedia(
+      new Request("http://localhost/x", { method: "DELETE" }),
+      params(created.id),
+    );
+    expect(purged.status).toBe(200);
+    expect(await prisma.media.findUnique({ where: { id: created.id } })).toBeNull();
+    expect(await prisma.brand.count()).toBe(1);
+    expect(await prisma.brand.count({ where: { logoMediaId: created.id } })).toBe(0);
   });
 
   it("purges only archived, unreferenced media (object + row)", async () => {
@@ -456,7 +494,47 @@ describe("media library (admin-api.md §5, FR-033)", () => {
     expect(await prisma.activityLog.count({ where: { entityId: created.id, action: "delete" } })).toBe(1);
   });
 
-  it("serves a public image with an ETag (304 on revalidation) and hides documents and archived images", async () => {
+  it("keeps the database cleanup committed and reports storage cleanup failure", async () => {
+    const actor = await createStaff("ContentManager");
+    const created = await uploadViaApi(actor, PNG, "storage-failure.png", "image/png");
+    await archiveMedia(new Request("http://localhost/x/archive", { method: "POST" }), params(created.id));
+
+    (globalThis as unknown as { zeinMediaStorage?: MediaStorage }).zeinMediaStorage = {
+      ...mediaStorage,
+      async delete() {
+        throw new Error("storage unavailable");
+      },
+    };
+    authAs(actor);
+    const failed = await purgeMedia(
+      new Request(`http://localhost/api/admin/media/${created.id}`, { method: "DELETE" }),
+      params(created.id),
+    );
+
+    expect(failed.status).toBe(400);
+    expect((await failed.json()).error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ issue: "storageDeleteFailed" })]),
+    );
+    expect(await prisma.media.findUnique({ where: { id: created.id } })).toBeNull();
+  });
+
+  it("allows only one repeated delete to win and leaves no parent records removed", async () => {
+    const actor = await createStaff("ContentManager");
+    const created = await uploadViaApi(actor, PNG, "concurrent-delete.png", "image/png");
+    await archiveMedia(new Request("http://localhost/x/archive", { method: "POST" }), params(created.id));
+
+    authAs(actor);
+    const responses = await Promise.all([
+      purgeMedia(new Request("http://localhost/x", { method: "DELETE" }), params(created.id)),
+      purgeMedia(new Request("http://localhost/x", { method: "DELETE" }), params(created.id)),
+    ]);
+
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
+    expect(responses.filter((response) => response.status !== 200)).toHaveLength(1);
+    expect(await prisma.media.findUnique({ where: { id: created.id } })).toBeNull();
+  });
+
+  it("serves a public image with an ETag (304 on revalidation) and hides documents while keeping archived images available", async () => {
     const actor = await createStaff("ContentManager");
     const image = await uploadViaApi(actor, PNG, "pub.png", "image/png");
     const doc = await uploadViaApi(actor, PDF, "private.pdf", "application/pdf");
@@ -486,6 +564,7 @@ describe("media library (admin-api.md §5, FR-033)", () => {
       new Request(`http://localhost/api/media/${image.id}`),
       params(image.id),
     );
-    expect(archived.status).toBe(404);
+    expect(archived.status).toBe(200);
+    expect(archived.headers.get("Content-Type")).toBe("image/png");
   });
 });

@@ -248,6 +248,7 @@ const KNOWN_ISSUES = new Set([
   "invalidEmail",
   "invalidSlug",
   "invalidUrl",
+  "invalidMapEmbedUrl",
   "notFound",
   "maxDepth",
 ]);
@@ -339,6 +340,8 @@ export function EntityManager(props: EntityManagerProps) {
       if (response.ok) {
         setFeedback({ tone: "ok", text: t("entityDeleted") });
         setPendingDelete(null);
+        setFormOpen(false);
+        setEditing(null);
         router.refresh();
       } else if (response.status === 400) {
         setFeedback({ tone: "error", text: t("entityDeleteBlocked") });
@@ -448,6 +451,8 @@ export function EntityManager(props: EntityManagerProps) {
           locale={locale}
           editing={editing}
           references={props}
+          canDelete={permissions.delete}
+          onDelete={editing ? () => setPendingDelete(editing) : undefined}
           onClose={() => {
             setFormOpen(false);
             setEditing(null);
@@ -486,6 +491,7 @@ export function EntityManager(props: EntityManagerProps) {
                 const busy = actionBusyId === id;
                 const rowStatus = asString(row.status) || "draft";
                 const isActive = asBool(row.isActive);
+                const isVerified = asBool(row.isVerified);
                 return (
                   <tr key={id} className="border-b border-zain-green-950/5 align-top">
                     {meta.columns.map((column) => (
@@ -503,6 +509,24 @@ export function EntityManager(props: EntityManagerProps) {
                             className="min-h-9 rounded-sm border border-zain-green-950/25 px-3 py-1 text-meta font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
                           >
                             {t("entityEdit")}
+                          </button>
+                        ) : null}
+
+                        {resource === "locations" && permissions.update ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              void runAction(
+                                id,
+                                isVerified ? "unverify" : "verify",
+                                { version: row.version },
+                                isVerified ? t("entityUnverified") : t("entityVerified"),
+                              )
+                            }
+                            className="min-h-9 rounded-sm border border-zain-green-950/25 px-3 py-1 text-meta font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
+                          >
+                            {isVerified ? t("entityUnverify") : t("entityVerify")}
                           </button>
                         ) : null}
 
@@ -656,12 +680,24 @@ interface EntityFormProps {
   locale: string;
   editing: Record<string, unknown> | null;
   references: EntityManagerProps;
+  canDelete?: boolean;
+  onDelete?: () => void;
   onClose: () => void;
   onSaved: (message: string) => void;
   onError: (message: string, details?: string[]) => void;
 }
 
-function EntityForm({ meta, locale, editing, references, onClose, onSaved, onError }: EntityFormProps) {
+function EntityForm({
+  meta,
+  locale,
+  editing,
+  references,
+  canDelete = false,
+  onDelete,
+  onClose,
+  onSaved,
+  onError,
+}: EntityFormProps) {
   const t = useTranslations("admin");
   const tValidation = useTranslations("validation");
   const tErrors = useTranslations("errors");
@@ -815,22 +851,35 @@ function EntityForm({ meta, locale, editing, references, onClose, onSaved, onErr
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex min-h-11 items-center justify-center rounded-sm bg-zain-green-950 px-6 py-2.5 text-body font-semibold text-zain-cream-50 hover:bg-zain-green-900 disabled:opacity-60"
-        >
-          {busy ? t("entitySaving") : isCreate ? t("entityCreateSubmit") : t("entitySaveSubmit")}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={busy}
-          className="min-h-11 rounded-sm border border-zain-green-950/25 px-5 py-2 text-body font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
-        >
-          {t("entityCancel")}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex min-h-11 items-center justify-center rounded-sm bg-zain-green-950 px-6 py-2.5 text-body font-semibold text-zain-cream-50 hover:bg-zain-green-900 disabled:opacity-60"
+          >
+            {busy ? t("entitySaving") : isCreate ? t("entityCreateSubmit") : t("entitySaveSubmit")}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="min-h-11 rounded-sm border border-zain-green-950/25 px-5 py-2 text-body font-semibold text-zain-green-950 hover:bg-zain-green-950/5 disabled:opacity-60"
+          >
+            {t("entityCancel")}
+          </button>
+        </div>
+
+        {!isCreate && canDelete && onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className="min-h-11 rounded-sm border border-red-700/40 px-5 py-2 text-body font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+          >
+            {t("entityDelete")}
+          </button>
+        ) : null}
       </div>
     </form>
   );
@@ -862,13 +911,12 @@ function FieldInput(props: FieldInputProps) {
   const labelSuffix = name.endsWith("Ar") ? ` (${t("entityLanguageArabic")})` : name.endsWith("En") ? ` (${t("entityLanguageEnglish")})` : "";
   const describedLabel = field.localized ? `${label}${labelSuffix}` : label;
   const id = `entity-${name}`;
+  const hintId = `${id}-hint`;
+  const hint = field.hintKey ? t(field.hintKey as never) : null;
 
   if (field.kind === "boolean") {
     // The hint lives OUTSIDE the <label> so clicking it does not toggle the
     // checkbox; it is still wired via `aria-describedby`.
-    const hintId = `${id}-hint`;
-    const hint = field.hintKey ? t(field.hintKey as never) : null;
-
     return (
       <div className="flex flex-col gap-1">
         <label className="flex min-h-11 items-center gap-3 text-body text-zain-green-950">
@@ -1140,10 +1188,16 @@ function FieldInput(props: FieldInputProps) {
           id={id}
           rows={4}
           maxLength={field.max}
+          aria-describedby={hint ? hintId : undefined}
           value={String(value ?? "")}
           onChange={(event) => set(name, event.target.value)}
           className="rounded-sm border border-zain-green-950/25 bg-white px-3 py-2"
         />
+        {hint ? (
+          <span id={hintId} className="max-w-prose text-meta text-zain-green-950/60">
+            {hint}
+          </span>
+        ) : null}
       </label>
     );
   }
@@ -1158,10 +1212,16 @@ function FieldInput(props: FieldInputProps) {
         step={field.kind === "number" ? "any" : undefined}
         maxLength={field.kind === "number" ? undefined : field.max}
         dir={field.kind === "number" || field.kind === "url" || field.kind === "email" ? "ltr" : undefined}
+        aria-describedby={hint ? hintId : undefined}
         value={String(value ?? "")}
         onChange={(event) => set(name, event.target.value)}
         className="min-h-11 rounded-sm border border-zain-green-950/25 bg-white px-3 py-2"
       />
+      {hint ? (
+        <span id={hintId} className="max-w-prose text-meta text-zain-green-950/60">
+          {hint}
+        </span>
+      ) : null}
     </label>
   );
 }

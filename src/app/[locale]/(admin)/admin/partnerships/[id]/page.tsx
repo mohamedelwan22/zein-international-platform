@@ -8,6 +8,7 @@ import { hasPermission } from "@/server/auth/permissions";
 import { getPartnershipRequest } from "@/server/services/partnerships";
 import { InquiryNotesForm } from "@/components/admin/inquiry-notes-form";
 import { InquiryStatusControls } from "@/components/admin/inquiry-status-controls";
+import { LeadDeleteButton } from "@/components/admin/lead-delete-button";
 import type { LeadStatusValue } from "@/server/validation/inquiries";
 
 /**
@@ -229,6 +230,15 @@ export default async function AdminPartnershipDetailPage({
         version={lead.version}
         endpoint="/api/admin/partnerships"
       />
+
+      {hasPermission(user.role, "partnerships:delete") ? (
+        <LeadDeleteButton
+          id={lead.id}
+          status={lead.status}
+          endpoint="/api/admin/partnerships"
+          redirectTo="/admin/partnerships"
+        />
+      ) : null}
     </section>
   );
 }

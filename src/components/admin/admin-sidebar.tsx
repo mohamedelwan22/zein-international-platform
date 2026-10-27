@@ -30,10 +30,10 @@ export function AdminSidebar({
   const items = ADMIN_SECTIONS.filter((section) => sections.includes(section.key));
 
   return (
-    <div className="flex h-full flex-col gap-6 bg-zain-green-900 p-5 text-zain-cream-50">
+    <aside className="flex h-dvh w-full flex-col gap-6 overflow-y-auto bg-zain-green-900 p-5 text-zain-cream-50 md:fixed md:inset-y-0 md:start-0 md:w-[17rem]">
       <p className="text-body font-semibold">{t("welcome", { name: userName })}</p>
 
-      <nav aria-label={t("navLabel")} className="flex-1">
+      <nav aria-label={t("navLabel")} className="min-h-0 flex-1 overflow-y-auto">
         <ul className="flex flex-col gap-1">
           {items.map((section) => {
             const active =
@@ -76,6 +76,6 @@ export function AdminSidebar({
           </button>
         </form>
       </div>
-    </div>
+    </aside>
   );
 }
