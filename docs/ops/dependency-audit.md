@@ -1,6 +1,6 @@
 # Dependency audit register (T110 / T118)
 
-Last reviewed: 2026-10-23 · Tooling: `pnpm audit` (pnpm 11.2.2) · Lockfile: `pnpm-lock.yaml`
+Last reviewed: 2026-10-28 · Tooling: `pnpm audit` (pnpm 11.2.2) · Lockfile: `pnpm-lock.yaml`
 
 ## Gate
 
@@ -11,13 +11,15 @@ pnpm audit                        # raw registry report (informational, exit 1 o
 ```
 
 `scripts/verify-dependency-audit.ts` runs `pnpm audit --json`, validates the
-report structure strictly, and evaluates it. As of 2026-10-23 the audit is
-**clean (0 advisories)**. One entry (`braces` / GHSA-vfj7-8cjw-p6xm) remains in
-the script's register for provenance only: the advisory was **withdrawn on
-2026-10-23** and `pnpm audit` no longer reports it. If it ever reappears, the
-entry is honored only while it stays on the reviewed module, version range,
-dependency path, and `dev: true`. Any other advisory — or any drift in the
-registered entry — fails the gate.
+report structure strictly, and evaluates it. The previously reported Zod
+advisory is resolved: the lockfile now contains only `zod@4.6.7`, which is
+patched for GHSA-mrhx-c7xc-m3w5. The four `fast-uri` advisories are resolved
+with a narrow pnpm workspace override to `fast-uri@3.1.9`. The package is
+selected by the Prisma 7.10.1 development chain (`prisma > @prisma/dev >
+@prisma/streams-local > ajv`), and `ajv@8.20.0` declares `fast-uri: ^3.0.1`,
+which includes patched `3.1.9`. No Prisma API or runtime package was changed.
+The override must be re-evaluated when Prisma publishes a dependency update
+that naturally resolves `fast-uri@3.1.9` or later.
 
 | Exit | Meaning |
 | --- | --- |
@@ -94,6 +96,22 @@ working-tree change). The versioned `auditConfig.ignoreGhsas` mechanism itself
 matches IDs correctly (a bogus entry does not hide the advisory), but it filters
 the report before any check can see what was hidden, so this project does not
 rely on it.
+
+## Resolved fast-uri advisories
+
+| Advisory | Package | Severity | Installed | Patched | Dependency path |
+| --- | --- | --- | --- | --- | --- |
+| GHSA-w74x-v6f9-j3xg | `fast-uri` | Moderate | 3.1.8 | 3.1.9 | `. > @prisma/client > prisma > @prisma/dev > @prisma/streams-local > ajv > fast-uri` |
+| GHSA-xhq7-xmqj-769h | `fast-uri` | Low | 3.1.8 | 3.1.9 | same path |
+| GHSA-wjr9-j795-jxcr | `fast-uri` | Moderate | 3.1.8 | 3.1.9 | same path |
+| GHSA-333x-w4r6-6crp | `fast-uri` | Low | 3.1.8 | 3.1.9 | same path |
+
+The authoritative GitHub Advisory Database records all four advisories as
+patched in `fast-uri@3.1.9`. `pnpm install --frozen-lockfile` and
+`pnpm verify:deps` validate the current override and resolved lockfile. The
+safe maintenance step is to remove the override only after a Prisma or
+`@prisma/dev`/AJV release naturally resolves to `fast-uri@3.1.9` or later and
+the audit remains clean.
 
 ## Withdrawn advisory (no active exception)
 

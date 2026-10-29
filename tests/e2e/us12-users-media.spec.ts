@@ -120,14 +120,15 @@ test.describe("US12 — Media library", () => {
 
     // Archive; it leaves the default (unarchived) view.
     await card.getByRole("button", { name: "Archive" }).click();
-    await expect(card.getByText("Archived")).toBeVisible({ timeout: ACTION_TIMEOUT });
+    await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(page.locator("li", { hasText: name })).toHaveCount(0, { timeout: ACTION_TIMEOUT });
 
     // The Archived filter lists it and purge is only offered there.
     await page.goto("/en/admin/media?archived=true");
     const archivedCard = page.locator("li", { hasText: name });
     await expect(archivedCard).toBeVisible({ timeout: ACTION_TIMEOUT });
-    await archivedCard.getByRole("button", { name: "Delete permanently" }).click();
-    await expect(archivedCard.getByText("Media deleted.")).toBeVisible({ timeout: ACTION_TIMEOUT });
+    await archivedCard.getByRole("button", { name: `Delete ${name}` }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
     await expect(page.locator("li", { hasText: name })).toHaveCount(0);
   });
 });

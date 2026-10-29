@@ -142,6 +142,7 @@ test.describe("US3 — sign-in + role-based admin access (FR-021/FR-022)", () =>
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/en\/login(?:\?|$)/);
+    await expect(page.locator('input[name="email"]')).toBeVisible();
 
     await page.goto("/en/admin");
     await expect(page).toHaveURL(/\/en\/login(?:\?|$)/);
