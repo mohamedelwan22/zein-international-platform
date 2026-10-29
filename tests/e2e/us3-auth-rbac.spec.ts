@@ -146,6 +146,7 @@ test.describe("US3 — sign-in + role-based admin access (FR-021/FR-022)", () =>
 
     await page.goto("/en/admin");
     await expect(page).toHaveURL(/\/en\/login(?:\?|$)/);
+    await expect(page.getByRole("navigation", { name: ADMIN_NAV_LABEL })).toHaveCount(0);
   });
 
   test("an anonymous visitor is redirected from admin to sign-in", async ({ page }) => {

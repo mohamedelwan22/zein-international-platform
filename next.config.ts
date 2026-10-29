@@ -75,6 +75,13 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
+        source: "/:locale/admin",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      {
         // Defence in depth for the admin tree (plan.md: frame-ancestors
         // 'none' for admin). The global CSP already sets it; this also
         // applies to any response that bypasses the CSP header (e.g. an
