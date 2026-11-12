@@ -68,12 +68,18 @@ export async function generateMetadata({
   const t = await getTranslations({ locale: active, namespace: "footer" });
   const company = t("companyName");
 
+  // Official default browser branding (icon files live in src/app/:
+  // favicon.ico, icon.png, apple-icon.png). Localized page titles and the
+  // Open Graph/SEO setup are preserved below and per route.
+  const ZEIN = "ZEIN International Trading";
+
   return {
     metadataBase: new URL(env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")),
     title: {
-      default: company,
-      template: `%s | ${company}`,
+      default: ZEIN,
+      template: `%s | ${ZEIN}`,
     },
+    description: "Official website of ZEIN International Trading.",
     openGraph: {
       siteName: company,
       images: [{ url: "/hero.png", width: 2001, height: 786 }],
