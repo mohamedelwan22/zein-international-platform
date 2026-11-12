@@ -90,7 +90,10 @@ export default async function HomePage({ params }: RouteProps) {
         secondaryCta={heroCtas.secondary}
       />
 
-      {/* Company preview — cream editorial band (§16 rhythm). */}
+      {/* Company preview — cream editorial band (§16 rhythm). Approved
+          statistics are integrated at the bottom of this section (FR-007):
+          only server-approved claims approved AND published ever reach
+          `experience.statistics`. */}
       {experience.aboutPreview ? (
         <Section className="bg-zain-cream-50 py-20 md:py-28">
           <div className="grid gap-10 md:grid-cols-[2fr_1fr] md:items-end">
@@ -110,6 +113,28 @@ export default async function HomePage({ params }: RouteProps) {
               </CtaButton>
             </div>
           </div>
+
+          {/* Approved statistics row — value prominent above its label, same
+              section, below the introduction. Mobile: two-column grid; tablet:
+              adaptive grid; desktop: horizontal row. Logical flow handles
+              LTR/RTL automatically. */}
+          {experience.statistics.length > 0 ? (
+            <ul className="mt-12 grid grid-cols-2 gap-x-4 gap-y-10 border-t border-zain-green-950/10 pt-10 sm:mt-14 sm:pt-12 md:grid-cols-4 md:gap-x-8">
+              {experience.statistics.map((statistic) => (
+                <li key={statistic.label} className="text-center">
+                  <p
+                    className="font-display text-h2 font-medium leading-none text-zain-green-950 md:text-h1"
+                    dir="auto"
+                  >
+                    {statistic.value}
+                  </p>
+                  <p className="mt-3 text-meta font-semibold uppercase tracking-wide text-zain-green-950/70">
+                    {statistic.label}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Section>
       ) : null}
 
@@ -130,23 +155,6 @@ export default async function HomePage({ params }: RouteProps) {
           </div>
         )}
       </Section>
-
-      {/* Statistics — rendered ONLY with approved values (FR-007). */}
-      {experience.statistics.length > 0 ? (
-        <Section className="bg-zain-green-950 py-16 md:py-24">
-          <SectionHeading namespace="home" titleKey="statisticsTitle" onDark />
-          <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {experience.statistics.map((statistic) => (
-              <li key={statistic.label} className="text-center">
-                <p className="font-display text-h1 font-medium text-zain-gold-400" dir="auto">
-                  {statistic.value}
-                </p>
-                <p className="mt-2 text-body text-zain-cream-50/85">{statistic.label}</p>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      ) : null}
 
       {/* Geographic presence teaser — approved wording only (FR-013). */}
       {experience.geographicPresence ? (

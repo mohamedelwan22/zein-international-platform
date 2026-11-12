@@ -200,15 +200,62 @@ export function CmsSectionEditor({
 
   async function publish() {
     const key = keyOf(activeSection, activeLocale);
-    let version = sections[key].version;
-    if (sections[key].dirty) {
-      const saved = await persistDraft();
-      if (!saved) return;
-      version = saved.version;
-    }
-
+    let working = sections[key];
+    let version = working.version;
     setPending("publish");
     try {
+      if (working.dirty) {
+        const saved = await persistDraft();
+        if (!saved) return;
+        version = saved.version;
+        working = saved;
+        setPending("publish");
+      }
+
+      // FR-007: home statistics must be (un)registered in the server-side
+      // approval register before publishing, or the public gate filters them
+      // out. Each approve-stat call bumps the section version, so read the
+      // returned version and thread it through the next call.
+      if (activeSection === "home" && canUpdate) {
+        const parsed = CMS_SECTION_SCHEMAS.home.safeParse(working.draft);
+        if (!parsed.success) {
+          setErrors(flattenIssues(parsed.error));
+          setFeedback({ tone: "error", text: t("cmsActionFailed") });
+          return;
+        }
+        const statistics = parsed.data.statistics;
+        for (let index = 0; index < statistics.length; index += 1) {
+          try {
+            const response = await fetch(`${endpoint}/approve-stat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                version,
+                statisticIndex: index,
+                approved: statistics[index].approved === true,
+              }),
+            });
+            if (!response.ok) {
+              await applyError(response);
+              return; // Publishing must not continue after a failed approval.
+            }
+            const row = (await response.json()) as Partial<CmsSectionData>;
+            version = row.version ?? version + 1;
+            working = {
+              ...working,
+              draft: mergeDraft("home", row.draftContent ?? working.draft),
+              published: row.publishedContent ?? working.published,
+              version,
+              updatedAt: row.updatedAt ?? working.updatedAt,
+            };
+            setSections((prev) => ({ ...prev, [key]: working }));
+          } catch {
+            setFeedback({ tone: "error", text: t("cmsActionFailed") });
+            return;
+          }
+        }
+      }
+
       const response = await fetch(`${endpoint}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
