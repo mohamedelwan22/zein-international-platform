@@ -5,8 +5,11 @@
 **/.next
 **/out
 **/build
-**/dist
+# Prisma client is (re)generated deterministically inside the image by the
+# `prisma` stage; never ship a stale local copy into the build context.
+src/generated
 **/.turbo
+**/dist
 
 .git
 .gitignore

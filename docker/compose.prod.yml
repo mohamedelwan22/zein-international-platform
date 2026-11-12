@@ -2,8 +2,11 @@
 # Production stack (T117) — app + Caddy (auto-HTTPS) + PostgreSQL.
 #
 # Media lives in an external S3-compatible bucket (configure S3_* in
-# .env.production); there is no in-stack object-storage service. MinIO CE is
-# EOL and its Docker Hub image was removed, and S3Mock is test/dev only.
+# .env.production); there is no in-stack object-storage service in this file.
+# For VPS *staging* only, docker/compose.staging.yml adds an isolated S3Mock
+# (private network, persistent volume, never a published port, NOT
+# production-grade storage). The development S3Mock lives in docker/compose.yaml.
+# MinIO CE is EOL and its Docker Hub image was removed.
 #
 #   docker compose -f docker/compose.prod.yml --env-file .env.production up -d
 #
@@ -17,9 +20,11 @@
 #
 # First-run order (see docs/ops/production-deployment.md):
 #   1. provision .env.production + the external S3 bucket
-#   2. docker compose ... up -d postgres
-#   3. docker compose ... --profile tools run --rm migrate   (backup first!)
+#   2. backup, then docker compose ... --profile tools run --rm migrate
+#   3. docker compose ... --profile tools run --rm seed   (first deploy only, idempotent)
 #   4. BUILD_ENV_FILE=... docker compose ... build app
+#      (the build uses host networking; publish postgres on host loopback
+#      for the build window only — see docker/compose.build.yml)
 #   5. docker compose ... up -d app caddy
 # ---------------------------------------------------------------------------
 
@@ -50,6 +55,13 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: runner
+      # BuildKit runs `RUN` steps on the host network by default here. This is
+      # what lets the `next build` prerender reach the stack PostgreSQL via the
+      # host loopback (never published on a public interface). See
+      # `docker/compose.build.yml` and "Build-time database" in
+      # docs/ops/production-deployment.md. Compose service DNS is NOT
+      # resolvable from inside BuildKit.
+      network: host
       # Build-time env (DATABASE_URL for the prerender + placeholder secrets)
       # is mounted as a BuildKit secret and never baked into image metadata.
       secrets:
@@ -109,16 +121,15 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # One-shot migration runner: uses the builder stage because it carries the
-  # Prisma CLI. Always take a backup before running it in production.
+  # One-shot migration runner: uses the `prisma` stage, which carries the
+  # Prisma CLI and needs no build-time secrets (no `next build`). Always take
+  # a backup before running it in production.
   migrate:
     profiles: ["tools"]
     build:
       context: ..
       dockerfile: Dockerfile
-      target: builder
-      secrets:
-        - build_env
+      target: prisma
     image: zein-migrate:${APP_IMAGE_TAG:-latest}
     env_file:
       - path: ../.env.production
@@ -127,6 +138,32 @@ services:
       postgres:
         condition: service_healthy
     command: ["pnpm", "db:migrate:prod"]
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
+  # One-shot, idempotent seed (approved profile content + bootstrap admin).
+  # NOT part of the normal deploy path — run it explicitly, once, after the
+  # first migration on a fresh database:
+  #   docker compose -f docker/compose.prod.yml --profile tools run --rm seed
+  # Re-running is safe: rows are upserted without overwriting staff edits.
+  # Requires ADMIN_EMAIL and ADMIN_PASSWORD in .env.production (see .env.example).
+  seed:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: prisma
+    image: zein-seed:${APP_IMAGE_TAG:-latest}
+    env_file:
+      - path: ../.env.production
+        required: false # operator-created; see docs/ops/production-deployment.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["pnpm", "db:seed"]
+    security_opt:
+      - no-new-privileges:true
     restart: "no"
 
   # One-shot database backup. Schedule it from the host (cron/systemd timer):

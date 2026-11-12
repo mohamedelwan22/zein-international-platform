@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------------------
+# Build-time overlay — host-loopback database access for `docker compose build`.
+#
+# The production image build (`next build` prerender) needs a reachable,
+# MIGRATED and SEEDED database, but BuildKit does NOT resolve Compose service
+# DNS, and PostgreSQL must never be reachable from public interfaces. This
+# overlay publishes the in-stack postgres on the host's loopback ONLY, so the
+# host-networked build (see `build.network` in compose.prod.yml) can reach
+# 127.0.0.1:5432 — and nothing else can.
+#
+# Use it for the build window ONLY, then return to the normal file:
+#
+#   # 1. start postgres with the loopback-only port published
+#   docker compose -f docker/compose.prod.yml -f docker/compose.build.yml \
+#     --env-file .env.production up -d postgres
+#
+#   # 2. build (DATABASE_URL in docker/.env.build points at 127.0.0.1:5432)
+#   BUILD_ENV_FILE="$PWD/docker/.env.build" \
+#     docker compose -f docker/compose.prod.yml --env-file .env.production build app
+#
+#   # 3. drop the loopback publish again (data lives in the pgdata volume)
+#   docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres
+#
+# 127.0.0.1 is not a public interface: the port is unreachable from outside the
+# host. Do NOT change the binding below to 0.0.0.0/::, and do NOT use this
+# overlay for the steady-state stack. If the host already runs something on
+# 5432, override the port (e.g. PG_BUILD_PORT=5433) and use the same port in
+# the build file's DATABASE_URL.
+# ---------------------------------------------------------------------------
+
+name: zein-prod
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${PG_BUILD_PORT:-5432}:5432"

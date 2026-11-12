@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# VPS STAGING overlay — isolated in-stack S3Mock for media smoke-testing.
+#
+#   docker compose -f docker/compose.prod.yml -f docker/compose.staging.yml \
+#     --env-file .env.staging up -d
+#
+# ⚠️  NOT PRODUCTION-GRADE STORAGE. S3Mock is an Adobe testing tool: single
+# process, no checksums/replication/IAM hardening guarantees. It exists solely
+# so a staging VPS can exercise the media upload/serving path before the
+# client provisions a real S3-compatible bucket (see "Known gaps" in
+# docs/ops/production-deployment.md). Anything stored here is disposable
+# staging data. Never point a real production domain at this service.
+#
+# Isolation properties (do not relax):
+#   * NO published port — unreachable from outside the Compose network; only
+#     `app` (and other on-network services) can reach s3mock:9090.
+#   * Dedicated named volume for persistence across restarts.
+#   * No credentials shared with any external system; region/bucket only.
+#
+# Runtime env for staging (.env.staging, never committed) must set:
+#   S3_ENDPOINT=http://s3mock:9090
+#   S3_BUCKET=zein-media
+#   S3_ACCESS_KEY=<any local placeholder, e.g. staging>
+#   S3_SECRET_KEY=<any local placeholder, e.g. staging>
+#   S3_REGION=us-east-1
+# (S3Mock ignores credentials; the app still requires them to be present.)
+#
+# The development S3Mock in docker/compose.yaml is unaffected by this file.
+# ---------------------------------------------------------------------------
+
+name: zein-prod
+
+services:
+  s3mock:
+    image: mirror.gcr.io/adobe/s3mock:latest
+    restart: unless-stopped
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: zein-media
+      COM_ADOBE_TESTING_S3MOCK_STORE_REGION: us-east-1
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    # No `ports:` — internal network only, by design.
+    volumes:
+      - staging_s3mockdata:/s3mockroot
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      s3mock:
+        condition: service_started
+
+volumes:
+  staging_s3mockdata:

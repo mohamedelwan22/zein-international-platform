@@ -27,6 +27,8 @@ standalone app + Caddy (automatic TLS) + PostgreSQL 17 + external S3-compatible 
 | `.env.production` | Runtime/interpolation environment (repo root). | No (`.env*` ignored) |
 | `docker/.env.build` | Build-time environment mounted as the `build_env` secret. | No |
 | `docker/.env.build.example` | Template for the build-time file. | Yes |
+| `docker/compose.build.yml` | Build-window overlay: publishes postgres on host loopback only. | Yes |
+| `docker/compose.staging.yml` | VPS-staging overlay: isolated, private S3Mock for media smoke-tests. | Yes |
 | `docker/Caddyfile` | TLS + reverse proxy to `app:3000`. | Yes |
 
 `docker/compose.prod.yml` resolves `env_file` entries relative to `docker/`, so
@@ -66,13 +68,42 @@ requires it whenever it evaluates `build` (including `docker compose config`).
 ## Build-time database
 
 With Cache Components, `next build` executes cached content loaders and needs a
-reachable, migrated database. The build container is not on the runtime Compose
-network, so choose one:
+reachable, migrated (and for a complete prerender, seeded) database. Compose
+service DNS (`postgres`) is **not** resolvable from inside BuildKit, so the
+build cannot simply point at `postgres:5432`. Validated approach (Linux VPS and
+Docker Desktop):
 
-- Build against a managed/dedicated database reachable from the build host, or
-- Temporarily make the stack database reachable (publish `5432` for the build
-  window, then remove it), or
-- Build on the database host with a `DATABASE_URL` that resolves there.
+1. For the build window only, publish the stack postgres on the host
+   **loopback** with the overlay — never on a public interface:
+
+   ```bash
+   docker compose -f docker/compose.prod.yml -f docker/compose.build.yml \
+     --env-file .env.production up -d postgres
+   ```
+
+2. The `app` build in `docker/compose.prod.yml` sets `build.network: host`, so
+   BuildKit `RUN` steps share the host network namespace and can reach
+   `127.0.0.1:5432`. `docker/.env.build` therefore uses
+   `DATABASE_URL=postgresql://<user>:<pass>@127.0.0.1:5432/<db>`
+   (override the port with `PG_BUILD_PORT` if 5432 is taken). This was verified
+   end-to-end: a host-networked image build succeeded against a loopback-bound
+   postgres, while nothing was published on non-loopback interfaces.
+
+3. After the build, drop the loopback publish again (data lives in the
+   `pgdata` volume):
+
+   ```bash
+   docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres
+   ```
+
+127.0.0.1 is not publicly reachable; do not change the binding in
+`docker/compose.build.yml`. Verified NOT to work: `build.network: <compose
+network name>` — BuildKit rejects arbitrary network names (`network mode
+"<name>" not supported by buildkit`). A `docker-container` buildx builder with
+`--driver-opt network=<network>` is the documented alternative, but it was not
+verified in this environment (the `moby/buildkit` image could not be pulled —
+registry connectivity); treat it as untested. A managed database reachable from
+the build host also works and needs no overlay.
 
 A complete, deterministic prerender also needs the seeded content rows. Never
 put a production admin password in the build file.
@@ -82,34 +113,73 @@ put a production admin password in the build file.
 ```bash
 # 0. Provision environment (never commit these files)
 cp .env.example .env.production          # fill in real values
-cp docker/.env.build.example docker/.env.build   # fill in build values
+cp docker/.env.build.example docker/.env.build   # fill in build values (127.0.0.1 DATABASE_URL)
 export BUILD_ENV_FILE="$PWD/docker/.env.build"
 
 # 1. Validate the rendered configuration
 docker compose -f docker/compose.prod.yml --env-file .env.production config --quiet
 
 # 2. Data services first
-docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres
+#    (loopback-only publish for the build window; see "Build-time database")
+docker compose -f docker/compose.prod.yml -f docker/compose.build.yml \
+  --env-file .env.production up -d postgres
 
 # 3. BACKUP FIRST, then migrate
 pnpm db:backup
 docker compose -f docker/compose.prod.yml --env-file .env.production \
   --profile tools run --rm migrate
 
-# 4. Build the app image (uses the build_env secret)
+# 4. FIRST DEPLOY ONLY: seed the approved profile content (idempotent).
+#    Never part of the regular deploy path; requires ADMIN_EMAIL/ADMIN_PASSWORD
+#    in .env.production. Re-running never overwrites staff edits.
+docker compose -f docker/compose.prod.yml --env-file .env.production \
+  --profile tools run --rm seed
+
+# 5. Build the app image (build runs on host network; uses the build_env secret)
 docker compose -f docker/compose.prod.yml --env-file .env.production build app
 
-# 5. Start the app behind Caddy
+# 6. Drop the loopback-only publish and start the app behind Caddy
+docker compose -f docker/compose.prod.yml --env-file .env.production up -d postgres
 docker compose -f docker/compose.prod.yml --env-file .env.production up -d app caddy
 ```
+
+Order matters: `postgres → migrate → seed → app build → app → caddy`. The
+`next build` prerender reads the migrated **and seeded** database, so the app
+image cannot be built before steps 3–4. Maintenance order: backup → migrate →
+build → start. Seed is deliberately a manual, one-shot step.
 
 `pnpm storage:setup` is idempotent: it creates the bucket if missing, enables
 versioning (FR-046), and verifies both. Run it from the host instead only when
 `S3_ENDPOINT` is an external S3 endpoint reachable from that host.
 
 `migrate` uses `prisma migrate deploy` (`pnpm db:migrate:prod`): it applies
-pending migrations only. Prisma migrations are forward-only — always take a
-backup before running it.
+pending migrations only, from the `prisma` image stage (no app build needed).
+`seed` uses `prisma db seed` from the same stage; it is manual/one-shot and
+idempotent. Prisma migrations are forward-only — always take a backup before
+running them.
+
+## VPS staging with in-stack S3Mock
+
+`docker/compose.staging.yml` is an **overlay** (use with `-f`, same project)
+that adds a single isolated S3Mock service for staging media smoke-tests:
+
+- Persistent dedicated volume `staging_s3mockdata`.
+- **No published port** — reachable only on the Compose network
+  (`http://s3mock:9090`); nothing is exposed to the internet.
+- Set `S3_ENDPOINT=http://s3mock:9090` (plus placeholder `S3_*` values) in a
+  git-ignored `.env.staging`. Runtime values for real production still point
+  at an external S3 bucket.
+- **S3Mock is not production-grade storage**: single process, no durability or
+  security guarantees. Staging data is disposable; production must use an
+  external S3-compatible bucket. Nothing in this overlay is a substitute for
+  client-approved storage.
+- The development S3Mock (`docker/compose.yaml`, host port 9100) is for local
+  dev only and is unaffected.
+
+```bash
+docker compose -f docker/compose.prod.yml -f docker/compose.staging.yml \
+  --env-file .env.staging up -d
+```
 
 ## Verification after deploy
 
