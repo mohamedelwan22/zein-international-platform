@@ -23,6 +23,11 @@ import type { AppLocale } from "@/i18n/routing";
  *   - `cms:home:{locale}` / `cms:about:{locale}` — CMS section publishes
  *   - `settings:contact_info:{locale}` — Settings updates (FR-014)
  *   - `categories:{locale}` — category changes (FR-027 dynamic categories)
+ *   - `brands:{locale}` — brand edits/publishes (FR-006 featured brands
+ *     resolve from the home CMS slug list; a brand mutation must reach the
+ *     home preview without waiting for the next CMS publish)
+ *   - `products:{locale}` — product edits/publishes (FR-006 featured products
+ *     resolve from the home CMS slug list)
  *
  * The active locale is an explicit argument, so it participates in the
  * cache key (per-locale entries, FR-004).
@@ -31,7 +36,7 @@ import type { AppLocale } from "@/i18n/routing";
 export async function loadHomeExperience(locale: AppLocale): Promise<HomeExperience> {
   "use cache";
   cacheLife("max");
-  cacheTag(`cms:home:${locale}`, `categories:${locale}`);
+  cacheTag(`cms:home:${locale}`, `categories:${locale}`, `brands:${locale}`, `products:${locale}`);
   return getHomeExperience(locale);
 }
 

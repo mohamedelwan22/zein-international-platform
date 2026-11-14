@@ -7,7 +7,7 @@ import { loadPageSeoOverride } from "@/server/cache/seo-content";
 import { buildPublicMetadata } from "@/lib/seo";
 import { Hero, type HeroCta } from "@/components/site/hero";
 import { Section, SectionHeading } from "@/components/site/section-heading";
-import { CategoryCard, EmptyState } from "@/components/site/cards";
+import { BrandCard, CategoryCard, EmptyState, FeaturedProductCard } from "@/components/site/cards";
 import { CtaSection } from "@/components/site/cta-section";
 import { CtaButton } from "@/components/site/cta-button";
 
@@ -152,6 +152,52 @@ export default async function HomePage({ params }: RouteProps) {
         ) : (
           <div className="mt-12">
             <EmptyState title={tEmpty("categoriesTitle")} body={tEmpty("categoriesBody")} />
+          </div>
+        )}
+      </Section>
+
+      {/* Featured brands — CMS-curated slugs resolving to published brands
+          (FR-006). Unresolved slugs are skipped server-side and logged. */}
+      <Section className="bg-zain-cream-50 py-20 md:py-28">
+        <SectionHeading
+          namespace="home"
+          titleKey="featuredBrandsTitle"
+          link={{ href: "/brands", label: tCommon("seeMore") }}
+        />
+        {experience.featuredBrands.length > 0 ? (
+          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {experience.featuredBrands.map((brand) => (
+              <li key={brand.id}>
+                <BrandCard brand={brand} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-12">
+            <EmptyState title={tEmpty("brandsTitle")} body={tEmpty("brandsBody")} />
+          </div>
+        )}
+      </Section>
+
+      {/* Featured products — CMS-curated slugs resolving to published products
+          (FR-006). Unresolved slugs are skipped server-side and logged. */}
+      <Section className="bg-white py-20 md:py-28">
+        <SectionHeading
+          namespace="home"
+          titleKey="featuredProductsTitle"
+          link={{ href: "/products", label: tCommon("seeMore") }}
+        />
+        {experience.featuredProducts.length > 0 ? (
+          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {experience.featuredProducts.map((product) => (
+              <li key={product.id}>
+                <FeaturedProductCard product={product} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-12">
+            <EmptyState title={tEmpty("productsTitle")} body={tEmpty("productsBody")} />
           </div>
         )}
       </Section>

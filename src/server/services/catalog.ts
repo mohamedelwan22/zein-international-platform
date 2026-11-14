@@ -7,6 +7,9 @@ import type {
   Prisma,
 } from "@/generated/prisma/client";
 import { resolveSlugRedirect } from "./redirects";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("catalog");
 
 /**
  * Public catalog reads (T041, FR-008 / FR-009 / SC-002).
@@ -56,6 +59,12 @@ export interface PublishedProductSummary {
   countryOfOrigin: string | null;
   brand: LocalizedRef;
   categories: PublishedCategoryRef[];
+}
+
+/** A featured product (Home preview): the summary plus its primary image. */
+export interface PublishedFeaturedProduct extends PublishedProductSummary {
+  /** First image by `sortOrder`, or null when none is attached. */
+  primaryImageMediaId: string | null;
 }
 
 export interface ProductImageRef {
@@ -170,6 +179,11 @@ interface ProductSummaryRow {
   categories: { category: CategoryColumns }[];
 }
 
+/** Summary row plus the first image only (Home featured products). */
+interface FeaturedProductRow extends ProductSummaryRow {
+  images: { mediaId: string }[];
+}
+
 interface ProductDetailRow extends ProductSummaryRow {
   descriptionEn: string | null;
   descriptionAr: string | null;
@@ -230,6 +244,16 @@ const productSummarySelect = {
   countryOfOriginAr: true,
   brand: { select: brandColumns },
   categories: publishedCategorySelect,
+} satisfies Prisma.ProductSelect;
+
+/** Summary selection plus the primary (first by sortOrder) image only. */
+const featuredProductSelect = {
+  ...productSummarySelect,
+  images: {
+    orderBy: { sortOrder: "asc" },
+    take: 1,
+    select: { mediaId: true },
+  },
 } satisfies Prisma.ProductSelect;
 
 const productDetailSelect = {
@@ -470,6 +494,185 @@ export async function listPublishedBrands(
   return rows.flatMap((row) => {
     const mapped = mapBrandSummary(locale, row);
     return mapped ? [mapped] : [];
+  });
+}
+
+/**
+ * Normalize a CMS-curated slug list: trim, drop empties, dedupe
+ * case-insensitively, preserving the curated order.
+ */
+function normalizeSlugInput(slugs: readonly string[]): string[] {
+  const wanted: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of slugs) {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    wanted.push(trimmed);
+  }
+  return wanted;
+}
+
+/**
+ * Featured brands for the Home preview (FR-006/FR-038): resolves the
+ * CMS-curated slug list to published+active brands, preserving the curated
+ * order. Slugs are matched against BOTH locale columns — the Home CMS is
+ * per-locale, but staff may enter one locale's slugs in both sections. The
+ * match is exact first, then case-insensitive (staff routinely type e.g.
+ * "Japlo" for slug "japlo"). Unknown, unpublished or inactive slugs are
+ * skipped and flagged in the server log — they never render publicly.
+ */
+export async function listPublishedBrandsBySlugs(
+  locale: AppLocale,
+  slugs: readonly string[],
+): Promise<PublishedBrandSummary[]> {
+  const wanted = normalizeSlugInput(slugs);
+  if (wanted.length === 0) return [];
+
+  const matchedByKey = new Map<string, BrandSummaryRow>();
+
+  const exactRows = await prisma.brand.findMany({
+    where: {
+      status: PUBLISHED,
+      isActive: true,
+      OR: [{ slugEn: { in: wanted } }, { slugAr: { in: wanted } }],
+    },
+    orderBy: { sortOrder: "asc" },
+    select: brandSummarySelect,
+  });
+  for (const row of exactRows) {
+    matchedByKey.set(row.slugEn.toLowerCase(), row);
+    matchedByKey.set(row.slugAr.toLowerCase(), row);
+  }
+
+  const unresolved = wanted.filter((slug) => !matchedByKey.has(slug.toLowerCase()));
+  if (unresolved.length > 0) {
+    const insensitiveRows = await prisma.brand.findMany({
+      where: {
+        status: PUBLISHED,
+        isActive: true,
+        OR: unresolved.flatMap((slug) => [
+          { slugEn: { equals: slug, mode: "insensitive" as const } },
+          { slugAr: { equals: slug, mode: "insensitive" as const } },
+        ]),
+      },
+      select: brandSummarySelect,
+    });
+    for (const row of insensitiveRows) {
+      matchedByKey.set(row.slugEn.toLowerCase(), row);
+      matchedByKey.set(row.slugAr.toLowerCase(), row);
+    }
+  }
+
+  const ordered: BrandSummaryRow[] = [];
+  const emitted = new Set<string>();
+  const missing: string[] = [];
+  for (const slug of wanted) {
+    const row = matchedByKey.get(slug.toLowerCase());
+    if (!row) {
+      missing.push(slug);
+      continue;
+    }
+    if (emitted.has(row.id)) continue;
+    emitted.add(row.id);
+    ordered.push(row);
+  }
+  if (missing.length > 0) {
+    logger.warn(
+      { locale, slugs: missing },
+      "Featured brand slug(s) did not resolve to a published, active brand — skipping",
+    );
+  }
+
+  return ordered.flatMap((row) => {
+    const mapped = mapBrandSummary(locale, row);
+    return mapped ? [mapped] : [];
+  });
+}
+
+/**
+ * Featured products for the Home preview (FR-006/FR-038): resolves the
+ * CMS-curated slug list to published+active products, preserving the curated
+ * order. A product additionally requires a published+active brand and at
+ * least one published+active category — the same orphan-proof predicate as
+ * the public product directory (data-model §2.4) — so a featured reference can
+ * never point at an unreachable detail page. Slugs are matched against BOTH
+ * locale columns (exact first, then case-insensitive); unknown, unpublished
+ * or inactive slugs are skipped and flagged in the server log.
+ */
+export async function listPublishedProductsBySlugs(
+  locale: AppLocale,
+  slugs: readonly string[],
+): Promise<PublishedFeaturedProduct[]> {
+  const wanted = normalizeSlugInput(slugs);
+  if (wanted.length === 0) return [];
+
+  const visibility = {
+    status: PUBLISHED,
+    isActive: true,
+    brand: { status: PUBLISHED, isActive: true },
+    categories: { some: { category: publishedCategoryWhere } },
+  } as const;
+
+  const matchedByKey = new Map<string, FeaturedProductRow>();
+
+  const exactRows = await prisma.product.findMany({
+    where: {
+      ...visibility,
+      OR: [{ slugEn: { in: wanted } }, { slugAr: { in: wanted } }],
+    },
+    orderBy: { sortOrder: "asc" },
+    select: featuredProductSelect,
+  });
+  for (const row of exactRows) {
+    matchedByKey.set(row.slugEn.toLowerCase(), row);
+    matchedByKey.set(row.slugAr.toLowerCase(), row);
+  }
+
+  const unresolved = wanted.filter((slug) => !matchedByKey.has(slug.toLowerCase()));
+  if (unresolved.length > 0) {
+    const insensitiveRows = await prisma.product.findMany({
+      where: {
+        ...visibility,
+        OR: unresolved.flatMap((slug) => [
+          { slugEn: { equals: slug, mode: "insensitive" as const } },
+          { slugAr: { equals: slug, mode: "insensitive" as const } },
+        ]),
+      },
+      select: featuredProductSelect,
+    });
+    for (const row of insensitiveRows) {
+      matchedByKey.set(row.slugEn.toLowerCase(), row);
+      matchedByKey.set(row.slugAr.toLowerCase(), row);
+    }
+  }
+
+  const ordered: FeaturedProductRow[] = [];
+  const emitted = new Set<string>();
+  const missing: string[] = [];
+  for (const slug of wanted) {
+    const row = matchedByKey.get(slug.toLowerCase());
+    if (!row) {
+      missing.push(slug);
+      continue;
+    }
+    if (emitted.has(row.id)) continue;
+    emitted.add(row.id);
+    ordered.push(row);
+  }
+  if (missing.length > 0) {
+    logger.warn(
+      { locale, slugs: missing },
+      "Featured product slug(s) did not resolve to a published, active, linked product — skipping",
+    );
+  }
+
+  return ordered.flatMap((row) => {
+    const mapped = mapProductSummary(locale, row);
+    if (!mapped) return [];
+    return [{ ...mapped, primaryImageMediaId: row.images[0]?.mediaId ?? null }];
   });
 }
 

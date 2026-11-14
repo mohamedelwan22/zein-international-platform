@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import type { PublishedCategoryPreview } from "@/server/services/categories";
 import type {
   PublishedBrandSummary,
+  PublishedFeaturedProduct,
   PublishedProductSummary,
 } from "@/server/services/catalog";
 import type {
@@ -251,6 +252,79 @@ export function ProductCard({ product }: { product: PublishedProductSummary }) {
             ))}
           </ul>
         ) : null}
+      </Link>
+    </article>
+  );
+}
+
+/**
+ * Featured product card for the Home preview (FR-006): primary image, name,
+ * associated brand, short description, and an explicit "View product" link.
+ * The whole card is a single link to the product detail page.
+ */
+export function FeaturedProductCard({ product }: { product: PublishedFeaturedProduct }) {
+  const tCatalog = useTranslations("catalog");
+
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-zain-green-950/10 bg-white transition-shadow hover:shadow-lg hover:shadow-zain-green-950/5">
+      <Link href={`/products/${product.slug}`} className="flex h-full flex-col">
+        {product.primaryImageMediaId ? (
+          <MediaImage
+            mediaId={product.primaryImageMediaId}
+            className="aspect-[4/3] w-full"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="flex aspect-[4/3] w-full items-center justify-center bg-zain-cream-100"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              className="h-12 w-12 text-zain-green-950/25"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M3.3 7L12 12l8.7-5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 22V12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        )}
+
+        <div className="flex flex-1 flex-col p-8">
+          <h3 className="font-display text-h3 font-medium text-zain-green-950">
+            {product.name}
+          </h3>
+
+          <p className="mt-2 text-meta text-zain-green-950/70">
+            <span className="font-semibold text-zain-green-700">{tCatalog("filterBrand")}</span>{" "}
+            {product.brand.name}
+          </p>
+
+          {product.summary ? (
+            <p className="mt-4 text-body text-zain-green-950/75">{product.summary}</p>
+          ) : null}
+
+          <span className="mt-auto inline-flex items-center gap-2 pt-6 text-body font-semibold text-zain-green-700">
+            {tCatalog("viewProduct")}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              fill="none"
+              className="h-4 w-4 rtl:-scale-x-100"
+            >
+              <path d="M5 12h14m0 0-6-6m6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
       </Link>
     </article>
   );

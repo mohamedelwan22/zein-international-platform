@@ -2,6 +2,12 @@ import { getPublishedSection, getPublishedSectionRecord } from "./cms";
 import { getSettings } from "./settings";
 import { listPublishedCategories, type PublishedCategoryPreview } from "./categories";
 import {
+  listPublishedBrandsBySlugs,
+  listPublishedProductsBySlugs,
+  type PublishedBrandSummary,
+  type PublishedFeaturedProduct,
+} from "./catalog";
+import {
   statisticApprovalKey,
   type AboutSection,
   type HomeSection,
@@ -41,6 +47,19 @@ export interface HomeExperience {
   finalCta: HomeSection["finalCta"] | null;
   /** Approved statistics ONLY (FR-007 gate). */
   statistics: ApprovedStatistic[];
+  /**
+   * CMS-curated featured brands (FR-006), resolved from the published home
+   * section's `featuredBrands` slug list — published+active only, curated
+   * order, locale-aware. Empty when nothing is curated or nothing resolves.
+   */
+  featuredBrands: PublishedBrandSummary[];
+  /**
+   * CMS-curated featured products (FR-006), resolved from the published home
+   * section's `featuredProducts` slug list — published+active products with a
+   * published+active brand and at least one published+active category, in
+   * curated order. Empty when nothing is curated or nothing resolves.
+   */
+  featuredProducts: PublishedFeaturedProduct[];
   /** Published dynamic product categories for the Home preview (FR-027). */
   categories: PublishedCategoryPreview[];
 }
@@ -80,11 +99,14 @@ export function approvedStatisticsOnly(
 }
 
 export async function getHomeExperience(locale: AppLocale): Promise<HomeExperience> {
-  const [record, categories] = await Promise.all([
-    getPublishedSectionRecord("home", locale),
-    listPublishedCategories(locale, { kind: "product" }),
-  ]);
+  const record = await getPublishedSectionRecord("home", locale);
   const section = record?.content ?? null;
+
+  const [categories, featuredBrands, featuredProducts] = await Promise.all([
+    listPublishedCategories(locale, { kind: "product" }),
+    listPublishedBrandsBySlugs(locale, section?.featuredBrands ?? []),
+    listPublishedProductsBySlugs(locale, section?.featuredProducts ?? []),
+  ]);
 
   return {
     // The raw section is deliberately NOT exposed: unapproved statistics must
@@ -102,6 +124,8 @@ export async function getHomeExperience(locale: AppLocale): Promise<HomeExperien
     statistics: section
       ? approvedStatisticsOnly(section.statistics, record?.approvedFlags ?? null)
       : [],
+    featuredBrands,
+    featuredProducts,
     categories,
   };
 }
